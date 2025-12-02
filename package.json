@@ -1,0 +1,12 @@
+{
+  "name": "npm-library",
+  "version": "0.0.0",
+  "private": true,
+  "description": "npm 라이브러리 모음",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/m16khb/npm-library.git"
+  },
+  "author": "m16khb",
+  "license": "MIT"
+}
