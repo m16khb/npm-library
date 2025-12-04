@@ -1,0 +1,244 @@
+openapi: 3.1.0
+info:
+  title: Error Response Schema
+  description: RFC 7807 Problem Details schema for NestJS applications
+  version: 1.0.0
+
+components:
+  schemas:
+    ProblemDetails:
+      type: object
+      required:
+        - type
+        - status
+        - title
+      properties:
+        type:
+          type: string
+          format: uri
+          description: A URI reference that identifies the problem type
+          example: "https://example.com/errors/validation-error"
+        status:
+          type: integer
+          format: int32
+          description: The HTTP status code
+          example: 400
+        title:
+          type: string
+          description: A short, human-readable summary of the problem
+          example: "Validation Failed"
+        detail:
+          type: string
+          description: A human-readable explanation specific to this occurrence
+          example: "Invalid email format provided"
+        instance:
+          type: string
+          format: uri
+          description: A URI reference that identifies the specific occurrence
+          example: "https://api.example.com/users/123"
+        timestamp:
+          type: string
+          format: date-time
+          description: Timestamp when the error occurred
+          example: "2024-12-04T10:30:00.000Z"
+        traceId:
+          type: string
+          description: Trace ID for request correlation
+          example: "trace-123e4567-89ab-cdef-0123456789ab"
+        requestId:
+          type: string
+          description: Request ID for tracking
+          example: "req-789abcde-f012-3456-789a-bcdef0123456"
+
+    ValidationErrorDetails:
+      allOf:
+        - $ref: '#/components/schemas/ProblemDetails'
+        - type: object
+      properties:
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ValidationErrorItem'
+      example:
+        type: "https://example.com/errors/validation-error"
+        status: 400
+        title: "Validation Failed"
+        detail: "Request validation failed"
+        errors:
+          - field: "email"
+            code: "INVALID_FORMAT"
+            message: "Invalid email format"
+            value: "not-an-email"
+          - field: "age"
+            code: "MIN_VALUE"
+            message: "Age must be at least 18"
+            value: 17
+
+    ValidationErrorItem:
+      type: object
+      required:
+        - field
+        - code
+        - message
+      properties:
+        field:
+          type: string
+          description: Field path using dot notation for nested objects
+          example: "user.email"
+        code:
+          type: string
+          description: Machine-readable error code
+          example: "INVALID_FORMAT"
+        message:
+          type: string
+          description: Human-readable error message
+          example: "Invalid email format"
+        value:
+          description: The invalid value that caused the error
+          example: "not-an-email"
+
+    InternalServerErrorDetails:
+      allOf:
+        - $ref: '#/components/schemas/ProblemDetails'
+        - type: object
+      properties:
+        stack:
+          type: string
+          description: Stack trace (development environment only)
+          example: |
+            Error: Something went wrong
+                at Object.execute (/app/src/service.js:45:11)
+                at processTicksAndRejections (node:internal/process/task_queues.js:93:5)
+        causes:
+          type: array
+          items:
+            type: object
+            properties:
+              type:
+                type: string
+              message:
+                type: string
+              stack:
+                type: string
+      example:
+        type: "https://example.com/errors/internal-server-error"
+        status: 500
+        title: "Internal Server Error"
+        detail: "An unexpected error occurred"
+        timestamp: "2024-12-04T10:30:00.000Z"
+        traceId: "trace-123e4567-89ab-cdef-0123456789ab"
+
+    NotFoundErrorDetails:
+      allOf:
+        - $ref: '#/components/schemas/ProblemDetails'
+        - type: object
+      properties:
+        resource:
+          type: string
+          description: The resource type that was not found
+          example: "User"
+        resourceId:
+          type: string
+          description: The ID of the resource that was not found
+          example: "123"
+      example:
+        type: "https://example.com/errors/not-found"
+        status: 404
+        title: "Resource Not Found"
+        detail: "User with id '123' not found"
+        instance: "https://api.example.com/users/123"
+        resource: "User"
+        resourceId: "123"
+
+    ConflictErrorDetails:
+      allOf:
+        - $ref: '#/components/schemas/ProblemDetails'
+        - type: object
+      properties:
+        conflictId:
+          type: string
+          description: ID of the conflicting resource
+          example: "conflict-456def78-90ab-cdef-0123456789ab"
+        conflictType:
+          type: string
+          description: Type of conflict
+          example: "DUPLICATE_RESOURCE"
+      example:
+        type: "https://example.com/errors/conflict"
+        status: 409
+        title: "Conflict"
+        detail: "Resource already exists"
+        conflictId: "conflict-456def78-90ab-cdef-0123456789ab"
+        conflictType: "DUPLICATE_RESOURCE"
+
+    UnauthorizedErrorDetails:
+      allOf:
+        - $ref: '#/components/schemas/ProblemDetails'
+        - type: object
+      properties:
+        requiredAuth:
+          type: array
+          items:
+            type: string
+          description: Required authentication methods
+          example: ["Bearer", "ApiKey"]
+      example:
+        type: "https://example.com/errors/unauthorized"
+        status: 401
+        title: "Unauthorized"
+        detail: "Authentication required"
+        requiredAuth: ["Bearer", "ApiKey"]
+
+    ForbiddenErrorDetails:
+      allOf:
+        - $ref: '#/components/schemas/ProblemDetails'
+        - type: object
+      properties:
+        requiredPermissions:
+          type: array
+          items:
+            type: string
+          description: Permissions required to access the resource
+          example: ["users:read", "users:write"]
+        userPermissions:
+          type: array
+          items:
+            type: string
+          description: Current user permissions
+          example: ["users:read"]
+      example:
+        type: "https://example.com/errors/forbidden"
+        status: 403
+        title: "Forbidden"
+        detail: "Insufficient permissions"
+        requiredPermissions: ["users:read", "users:write"]
+        userPermissions: ["users:read"]
+
+    RateLimitErrorDetails:
+      allOf:
+        - $ref: '#/components/schemas/ProblemDetails'
+        - type: object
+      properties:
+        retryAfter:
+          type: integer
+          format: int32
+          description: Seconds to wait before retrying
+          example: 60
+        limit:
+          type: integer
+          format: int32
+          description: Request limit per time window
+          example: 100
+        window:
+          type: integer
+          format: int32
+          description: Time window in seconds
+          example: 3600
+      example:
+        type: "https://example.com/errors/rate-limit"
+        status: 429
+        title: "Too Many Requests"
+        detail: "Rate limit exceeded"
+        retryAfter: 60
+        limit: 100
+        window: 3600

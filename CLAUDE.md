@@ -39,3 +39,10 @@ npm-library/
 | 모듈 | 설명 |
 |------|------|
 | [traceable](packages/traceable/CLAUDE.md) | Traceable 라이브러리 |
+
+## Active Technologies
+- TypeScript 5.7+ (ES2022) (004-universal-tracer)
+- N/A (in-memory CLS) (004-universal-tracer)
+
+## Recent Changes
+- 004-universal-tracer: Added TypeScript 5.7+ (ES2022)
