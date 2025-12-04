@@ -1,0 +1,391 @@
+openapi: 3.1.0
+info:
+  title: Universal Tracer API Reference
+  description: API interfaces for the Universal Trace Context Library
+  version: 1.0.0
+  contact:
+    name: npm library support
+    email: support@example.com
+
+components:
+  schemas:
+    TraceContext:
+      type: object
+      description: Core trace context information
+      properties:
+        traceId:
+          type: string
+          format: uuid
+          description: Unique identifier for the entire trace
+          example: "0194fdc2-fa24-7000-8b0a-4b66944c73a8"
+        spanId:
+          type: string
+          format: uuid
+          description: Identifier for the current span/operation
+          example: "0194fdc2-fa24-7000-8b0a-4b66944c73a9"
+        parentSpanId:
+          type: string
+          format: uuid
+          description: Parent span identifier for nested operations
+          nullable: true
+        sampled:
+          type: boolean
+          description: Whether this trace is sampled for detailed logging
+          example: true
+        flags:
+          type: integer
+          format: uint8
+          description: Trace flags (bitmask for debugging options)
+          example: 1
+        vendorData:
+          type: object
+          description: Vendor-specific trace data (tracestate)
+          additionalProperties:
+            type: string
+        createdAt:
+          type: string
+          format: date-time
+          description: Timestamp when trace was created
+          example: "2025-12-04T10:30:00.000Z"
+        metadata:
+          type: object
+          description: Additional metadata for the trace
+          properties:
+            serviceName:
+              type: string
+              example: "user-service"
+            version:
+              type: string
+              example: "1.0.0"
+            environment:
+              type: string
+              example: "production"
+      required:
+        - traceId
+        - spanId
+        - sampled
+        - flags
+        - createdAt
+
+    TracerConfig:
+      type: object
+      description: Configuration for the tracer instance
+      properties:
+        serviceName:
+          type: string
+          description: Name of the service generating traces
+          example: "user-service"
+        headerNames:
+          type: object
+          description: Custom header names for trace propagation
+          properties:
+            traceParent:
+              type: string
+              default: "traceparent"
+              example: "x-trace-id"
+            traceState:
+              type: string
+              default: "tracestate"
+            correlationId:
+              type: string
+              default: "x-correlation-id"
+        sampling:
+          type: object
+          description: Sampling configuration
+          properties:
+            enabled:
+              type: boolean
+              default: true
+            rate:
+              type: number
+              format: float
+              minimum: 0
+              maximum: 1
+              description: Sampling rate (0.0 to 1.0)
+              example: 0.1
+            minRate:
+              type: number
+              format: float
+              minimum: 0
+              maximum: 1
+              description: Minimum guaranteed sampling rate
+              example: 0.01
+        performance:
+          type: object
+          description: Performance tuning options
+          properties:
+            maxContextDepth:
+              type: integer
+              minimum: 1
+              maximum: 1000
+              default: 100
+              description: Maximum nested context depth
+            contextCacheSize:
+              type: integer
+              minimum: 10
+              maximum: 10000
+              default: 1000
+              description: Size of context cache
+            cleanupInterval:
+              type: integer
+              minimum: 100
+              maximum: 60000
+              default: 5000
+              description: Cleanup interval in milliseconds
+        debug:
+          type: boolean
+          default: false
+          description: Enable debug mode for detailed logging
+      required:
+        - serviceName
+
+    WinstonIntegration:
+      type: object
+      description: Winston logger integration configuration
+      properties:
+        logger:
+          oneOf:
+            - type: string
+              description: Logger instance name
+            - type: object
+              description: Logger configuration
+              x-skip: true
+        fieldName:
+          type: string
+          default: "traceId"
+          description: Field name for trace ID in logs
+          example: "traceId"
+        includeCorrelationId:
+          type: boolean
+          default: false
+          description: Include correlation ID in logs
+        format:
+          type: object
+          description: Log formatting options
+          properties:
+            json:
+              type: boolean
+              default: true
+            colorize:
+              type: boolean
+              default: false
+            timestamp:
+              type: boolean
+              default: true
+
+    HttpIntegration:
+      type: object
+      description: HTTP middleware integration configuration
+      properties:
+        framework:
+          type: string
+          enum: [express, fastify, generic]
+          description: HTTP framework type
+        headers:
+          type: object
+          description: Header configuration
+          properties:
+            incoming:
+              type: array
+              items:
+                type: string
+              description: Headers to extract from incoming requests
+            outgoing:
+              type: array
+              items:
+                type: string
+              description: Headers to inject into outgoing requests
+        generateOnMissing:
+          type: boolean
+          default: true
+          description: Generate new trace if not present in headers
+        skipPaths:
+          type: array
+          items:
+            oneOf:
+              - type: string
+              - type: string
+                format: regex
+          description: Paths to skip trace processing
+          example: ["/health", "/metrics", /^\/api\/v1\/status/]
+
+    BullMQIntegration:
+      type: object
+      description: BullMQ job processing integration configuration
+      properties:
+        dataKey:
+          type: string
+          default: "_trace"
+          description: Job data key for storing trace context
+          example: "trace"
+        propagateToChildren:
+          type: boolean
+          default: true
+          description: Propagate trace to child jobs
+        includeJobMetadata:
+          type: boolean
+          default: true
+          description: Include job metadata in trace
+
+    TypeORMIntegration:
+      type: object
+      description: TypeORM logger integration configuration
+      properties:
+        logger:
+          type: object
+          description: TypeORM logger options
+          properties:
+            logQueries:
+              type: boolean
+              default: false
+            logSlowQueries:
+              type: boolean
+              default: true
+            slowQueryTime:
+              type: integer
+              minimum: 50
+              maximum: 10000
+              default: 1000
+              description: Threshold for slow query logging (ms)
+        formatQuery:
+          type: string
+          description: Custom query format function
+          x-skip: true
+
+    TraceHeaders:
+      type: object
+      description: HTTP headers for trace propagation
+      properties:
+        traceparent:
+          type: string
+          pattern: '^[0-9a-f]{2}-[0-9a-f]{32}-[0-9a-f]{16}-[0-9a-f]{2}$'
+          description: W3C trace context header
+          example: "00-0194fdc2fa2470008b0a4b66944c73a8-0194fdc2fa2470008b0a4b66944c73a9-01"
+        tracestate:
+          type: string
+          description: W3C trace state for vendor-specific data
+          example: "rojo=00f067aa0ba902b7,congo=t61rcWkgMzE"
+        x-b3-traceid:
+          type: string
+          pattern: '^[0-9a-f]{16}$|^[0-9a-f]{32}$'
+          description: B3 trace ID (Zipkin)
+          example: "0194fdc2fa2470008b0a4b66944c73a8"
+        x-b3-spanid:
+          type: string
+          pattern: '^[0-9a-f]{16}$'
+          description: B3 span ID
+          example: "0194fdc2fa247000"
+        x-b3-parentspanid:
+          type: string
+          pattern: '^[0-9a-f]{16}$'
+          description: B3 parent span ID
+          nullable: true
+        x-b3-sampled:
+          type: string
+          enum: ["0", "1"]
+          description: B3 sampling decision
+          example: "1"
+        x-correlation-id:
+          type: string
+          description: Correlation ID for business transaction tracking
+          example: "req-789abcde-f012-3456-789a-bcdef0123456"
+
+    TraceMetrics:
+      type: object
+      description: Performance and operational metrics
+      properties:
+        totalOperations:
+          type: integer
+          format: int64
+          description: Total number of traced operations
+          example: 1000000
+        avgOperationsPerTrace:
+          type: number
+          format: float
+          description: Average operations per trace
+          example: 5.2
+        activeTraces:
+          type: integer
+          format: int32
+          description: Number of currently active traces
+          example: 150
+        memoryUsage:
+          type: object
+          description: Memory usage statistics
+          properties:
+            total:
+              type: integer
+              format: int64
+              description: Total memory used by traces (bytes)
+              example: 1048576
+            perTrace:
+              type: integer
+              format: int32
+              description: Average memory per trace (bytes)
+              example: 1024
+            peak:
+              type: integer
+              format: int64
+              description: Peak memory usage (bytes)
+              example: 2097152
+        performance:
+          type: object
+          description: Performance metrics
+          properties:
+            avgExtractionTime:
+              type: number
+              format: float
+              description: Average trace extraction time (microseconds)
+              example: 15.5
+            avgInjectionTime:
+              type: number
+              format: float
+              description: Average trace injection time (microseconds)
+              example: 12.3
+            avgContextAccess:
+              type: number
+              format: float
+              description: Average context access time (microseconds)
+              example: 0.5
+        errors:
+          type: object
+          description: Error statistics
+          properties:
+            extractionFailures:
+              type: integer
+              format: int64
+              description: Number of trace extraction failures
+              example: 10
+            injectionFailures:
+              type: integer
+              format: int64
+              description: Number of trace injection failures
+              example: 5
+            contextErrors:
+              type: integer
+              format: int64
+              description: Number of context access errors
+              example: 2
+
+  examples:
+    TraceContextExample:
+      value:
+        traceId: "0194fdc2-fa24-7000-8b0a-4b66944c73a8"
+        spanId: "0194fdc2-fa24-7000-8b0a-4b66944c73a9"
+        parentSpanId: null
+        sampled: true
+        flags: 1
+        vendorData:
+          vendor: "example"
+          environment: "production"
+        createdAt: "2025-12-04T10:30:00.000Z"
+        metadata:
+          serviceName: "user-service"
+          version: "1.0.0"
+          environment: "production"
+
+    HttpHeadersExample:
+      value:
+        traceparent: "00-0194fdc2fa2470008b0a4b66944c73a8-0194fdc2fa2470008b0a4b66944c73a9-01"
+        tracestate: "example=value"
+        x-correlation-id: "req-789abcde-f012-3456-789a-bcdef0123456"

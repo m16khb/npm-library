@@ -1,0 +1,196 @@
+openapi: 3.1.0
+info:
+  title: Async Utils Library API
+  description: Internal API contracts for async utilities (for documentation purposes)
+  version: 1.0.0
+
+# Note: This is a library, not a REST API. This document defines the function signatures
+# and behaviors for TypeScript implementation reference.
+
+components:
+  schemas:
+    RetryOptions:
+      type: object
+      properties:
+        retries:
+          type: integer
+          default: 3
+          description: Maximum number of retry attempts
+        factor:
+          type: number
+          default: 2
+          description: Exponential backoff factor
+        minTimeout:
+          type: integer
+          default: 1000
+          description: Minimum delay in milliseconds
+        maxTimeout:
+          type: integer
+          default: 30000
+          description: Maximum delay in milliseconds
+        randomize:
+          type: boolean
+          default: false
+          description: Add jitter to prevent thundering herd
+        shouldRetry:
+          type: string
+          description: Function to determine if error should be retried
+        onFailedAttempt:
+          type: string
+          description: Callback function on failed attempt
+        signal:
+          type: string
+          description: AbortSignal for cancellation
+
+    TimeoutOptions:
+      type: object
+      required:
+        - milliseconds
+      properties:
+        milliseconds:
+          type: integer
+          description: Timeout duration in milliseconds
+        message:
+          oneOf:
+            - type: string
+            - type: string
+            - type: boolean
+          description: Custom timeout message
+        fallback:
+          type: string
+          description: Fallback function
+        signal:
+          type: string
+          description: AbortSignal for cancellation
+        customTimers:
+          type: object
+          properties:
+            setTimeout:
+              type: string
+            clearTimeout:
+              type: string
+
+    ConcurrencyLimit:
+      type: object
+      description: Interface for concurrency management
+      properties:
+        activeCount:
+          type: string
+          description: Returns number of active operations
+        pendingCount:
+          type: string
+          description: Returns number of queued operations
+        limit:
+          type: string
+          description: Limits function execution
+        clearQueue:
+          type: string
+          description: Clears pending queue
+
+    SleepOptions:
+      type: object
+      properties:
+        signal:
+          type: string
+          description: AbortSignal for cancellation
+        value:
+          description: Value to resolve with
+
+    RetryError:
+      type: object
+      properties:
+        name:
+          type: string
+          example: 'RetryError'
+        message:
+          type: string
+        attemptNumber:
+          type: integer
+        retriesLeft:
+          type: integer
+        cause:
+          type: object
+          description: Original error
+
+    TimeoutError:
+      type: object
+      properties:
+        name:
+          type: string
+          example: 'TimeoutError'
+        message:
+          type: string
+
+    AbortError:
+      type: object
+      properties:
+        name:
+          type: string
+          example: 'AbortError'
+        message:
+          type: string
+
+# Function signatures (for documentation)
+paths:
+  /retry:
+    summary: 'retry<T>(fn: () => Promise<T>, options?: RetryOptions): Promise<T>'
+    description: |
+      Execute function with retry logic and exponential backoff.
+
+      Examples:
+      ```typescript
+      await retry(() => fetch(url), { retries: 5, factor: 2 });
+      ```
+
+  /timeout:
+    summary: 'timeout<T>(promise: Promise<T>, options: TimeoutOptions): Promise<T>'
+    description: |
+      Add timeout to promise with cancellation support.
+
+      Examples:
+      ```typescript
+      await timeout(fetch(url), { milliseconds: 5000 });
+      ```
+
+  /concurrency:
+    summary: 'createConcurrencyLimit(concurrency: number): ConcurrencyLimit'
+    description: |
+      Create concurrency manager to limit simultaneous operations.
+
+      Examples:
+      ```typescript
+      const limit = createConcurrencyLimit(5);
+      await limit.limit(() => heavyOperation());
+      ```
+
+  /sleep:
+    summary: 'sleep(ms: number, options?: SleepOptions): Promise<void>'
+    description: |
+      Sleep for specified milliseconds with cancellation support.
+
+      Examples:
+      ```typescript
+      await sleep(1000);
+      await sleep(5000, { signal: abortController.signal });
+      ```
+
+  /delay:
+    summary: 'rangeDelay(min: number, max: number, options?: SleepOptions): Promise<void>'
+    description: |
+      Sleep for random duration between min and max.
+
+      Examples:
+      ```typescript
+      await rangeDelay(1000, 2000);
+      ```
+
+  /helpers:
+    summary: 'Utility functions for promise handling'
+    description: |
+      ```typescript
+      // Create promise with resolvers
+      const { promise, resolve, reject } = withResolvers<T>();
+
+      // Convert promise to result tuple
+      const [data, error] = await toResult(() => riskyOperation());
+      ```

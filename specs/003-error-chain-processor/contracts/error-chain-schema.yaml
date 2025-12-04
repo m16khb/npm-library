@@ -1,0 +1,116 @@
+openapi: 3.1.0
+info:
+  title: Error Chain Processor API Reference
+  description: RFC-compliant error response schema for applications with Error.cause chain support
+  version: 1.0.0
+
+components:
+  schemas:
+    BaseError:
+      type: object
+      description: Basic error structure
+      properties:
+        name:
+          type: string
+        message: string
+        stack:
+          type: string
+      required:
+        - name
+        - message
+      example:
+          name: "ValidationError"
+          message: "Validation failed"
+          stack: "Error at validate (filename.ts:5:10)"
+
+    ProcessedError:
+      type: object
+      description: Processed error object with all context
+      properties:
+        root:
+          $ref: '#/components/schemas/BaseError'
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProcessedError'
+        chain:
+          type: array
+        depth:
+          type: number
+        processedAt:
+          type: string
+          format: date-time
+        processingDuration:
+          type: number
+        hasCircularRefs:
+          type: boolean
+        metadata:
+          type: object
+          properties:
+            processingTime: number
+            maxDepth: number
+            memoryUsage: number
+
+    ValidationError:
+      type: object
+      description: Validation error details
+      properties:
+        type: string
+        status: number
+        title: string
+        detail: string
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ValidationErrorItem'
+        example:
+          type: "https://api.example.com/errors/validation-failed"
+          status: 400
+          title: "Validation Failed"
+          detail: "Request validation failed"
+          errors:
+            - field: "email"
+              code: "INVALID_FORMAT"
+              message: "Invalid email format"
+              value: "not-an-email"
+
+    CircularReferenceError:
+      type: object
+      description: Circular reference in error chain
+      properties:
+        type: string
+        status: number
+        title: string
+        detail: "Circular reference detected in error chain"
+        circularInfo:
+          type: object
+          properties:
+            error:
+              $ref: '#/components/schemas/CircularReferenceError'
+        traceId: string
+
+    SerializableErrorChain:
+      type: object
+      description: Serialized version of error chain with circular reference protection
+      properties:
+        type: string
+        name: string
+        message: string
+        stack?: string
+        cause: SerializedErrorChain | string | null
+        children:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProcessedError'
+        timestamp:
+          type: string
+        serializedType:
+          type: string
+          enum: [safe, circular]
+        metadata:
+          type: object
+          properties:
+            processingTime: number
+            memoryEfficiency: string
+  requirements:
+          - type: string[]
