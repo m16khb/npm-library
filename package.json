@@ -2,6 +2,7 @@
   "name": "npm-library",
   "version": "0.0.0",
   "private": true,
+  "type": "module",
   "description": "npm 라이브러리 모음",
   "repository": {
     "type": "git",
@@ -16,17 +17,30 @@
   "scripts": {
     "build": "turbo run build",
     "dev": "turbo run dev",
-    "lint": "turbo run lint",
+    "lint": "eslint . --ext .ts,.js --cache --cache-location ./.eslintcache",
+    "lint:fix": "eslint . --ext .ts,.js --fix --cache --cache-location ./.eslintcache",
+    "format": "prettier --write \"packages/*/src/**/*.{ts,tsx,js,jsx}\" \"*.{js,ts,json,md}\"",
+    "format:check": "prettier --check \"packages/*/src/**/*.{ts,tsx,js,jsx}\" \"*.{js,ts,json,md}\"",
     "test": "turbo run test",
     "typecheck": "turbo run typecheck",
-    "clean": "turbo run clean && rm -rf node_modules .turbo",
+    "clean": "turbo run clean && rm -rf node_modules .turbo .eslintcache",
+    "prepare": "pnpm run lint:fix && pnpm run format",
+    "pre-commit": "pnpm run typecheck && pnpm run lint && pnpm run test",
     "changeset": "changeset",
     "version": "changeset version",
     "release": "pnpm build && changeset publish"
   },
   "devDependencies": {
     "@changesets/cli": "^2.27.10",
+    "@eslint/js": "^9.39.1",
+    "@typescript-eslint/eslint-plugin": "^7.0.0",
+    "@typescript-eslint/parser": "^7.0.0",
+    "eslint": "^9.0.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-import": "^2.32.0",
+    "prettier": "^3.7.4",
     "turbo": "^2.3.3",
-    "typescript": "^5.7.2"
+    "typescript": "^5.7.2",
+    "typescript-eslint": "^8.48.1"
   }
 }

@@ -1,0 +1,97 @@
+{
+  "name": "@m16khb/async-utils",
+  "version": "1.0.0",
+  "description": "비동기 작업 제어 라이브러리 - retry, timeout, concurrency control",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./core": {
+      "types": "./dist/core/index.d.ts",
+      "import": "./dist/core/index.js"
+    },
+    "./nestjs": {
+      "types": "./dist/nestjs/index.d.ts",
+      "import": "./dist/nestjs/index.js"
+    },
+    "./retry": {
+      "types": "./dist/core/retry/index.d.ts",
+      "import": "./dist/core/retry/index.js"
+    },
+    "./timeout": {
+      "types": "./dist/core/timeout/index.d.ts",
+      "import": "./dist/core/timeout/index.js"
+    },
+    "./concurrency": {
+      "types": "./dist/core/concurrency/index.d.ts",
+      "import": "./dist/core/concurrency/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "vitest run",
+    "test:watch": "vitest --watch",
+    "test:coverage": "vitest run --coverage",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist .turbo"
+  },
+  "keywords": [
+    "async",
+    "retry",
+    "timeout",
+    "concurrency",
+    "nestjs",
+    "typescript",
+    "rate-limit"
+  ],
+  "author": "m16khb",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/m16khb/async-utils.git"
+  },
+  "bugs": {
+    "url": "https://github.com/m16khb/async-utils/issues"
+  },
+  "homepage": "https://github.com/m16khb/async-utils#readme",
+  "devDependencies": {
+    "@nestjs/common": "^10.0.0",
+    "@nestjs/core": "^10.0.0",
+    "@nestjs/testing": "^10.0.0",
+    "@sinonjs/fake-timers": "^11.3.1",
+    "@types/sinonjs__fake-timers": "^8.1.5",
+    "reflect-metadata": "^0.2.0",
+    "tsup": "^8.0.0",
+    "typescript": "^5.7.0",
+    "vitest": "^2.0.0"
+  },
+  "peerDependencies": {
+    "@nestjs/common": "^10.0.0 || ^11.0.0",
+    "@nestjs/core": "^10.0.0 || ^11.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@nestjs/common": {
+      "optional": true
+    },
+    "@nestjs/core": {
+      "optional": true
+    }
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

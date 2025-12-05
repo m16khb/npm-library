@@ -80,7 +80,26 @@ NestJS 개발자가 데코레이터와 모듈로 쉽게 통합하여 기존 Nest
 
 ---
 
-### User Story 5 - 통합 사용 (Priority: P2)
+### User Story 5 - 지연 및 대기 (Priority: P2)
+
+개발자가 안전하고 취소 가능한 대기 함수를 사용하여 비동기 흐름 제어와 폴링 로직을 구현한다.
+
+**Why this priority**: 단순 setTimeout 대신 안전한 대기 함수가 필요하며, 취소 가능한 대기는 리소스 정리에 필수적이다.
+
+**Independent Test**: wait 함수로 대기 후 시간이 정확히 경과했는지, abort 시 즉시 취소되는지 검증할 수 있다.
+
+**Acceptance Scenarios**:
+
+1. **Given** wait(1000)이 호출된 상황, **When** 1초가 경과, **Then** Promise가 resolve되고 다음 코드 실행
+2. **Given** wait에 AbortSignal이 전달된 상황, **When** abort() 호출, **Then** 즉시 AbortError 발생 및 타이머 정리
+3. **Given** waitUntil(condition)이 호출된 상황, **When** condition이 true 반환, **Then** 즉시 resolve
+4. **Given** waitUntil에 timeout 옵션이 설정된 상황, **When** timeout 초과, **Then** 타임아웃 에러 발생
+5. **Given** waitFor(count, ms, callback)이 호출된 상황, **When** 실행 완료, **Then** callback이 count번 호출되고 각 호출 간 ms만큼 대기
+6. **Given** wait(0)이 호출된 상황, **When** 즉시 실행, **Then** 마이크로태스크 큐에서 resolve (동기적으로 완료되지 않음)
+
+---
+
+### User Story 6 - 통합 사용 (Priority: P2)
 
 개발자가 retry + timeout + concurrency를 조합하여 복잡한 비동기 워크플로우를 안정적으로 처리한다.
 
@@ -126,6 +145,16 @@ NestJS 개발자가 데코레이터와 모듈로 쉽게 통합하여 기존 Nest
 - **FR-011**: 시스템은 타임아웃 시 커스텀 에러 또는 폴백 값 반환을 지원해야 한다
 - **FR-012**: 시스템은 AbortSignal을 통한 작업 취소를 모든 함수에서 지원해야 한다
 
+#### Delay 모듈
+
+- **FR-027**: 시스템은 `wait(ms)` 함수를 제공하여 지정된 시간만큼 대기해야 한다
+- **FR-028**: 시스템은 wait 함수에서 AbortSignal을 통한 취소를 지원해야 한다
+- **FR-029**: 시스템은 wait 함수에서 대기 완료 시 반환할 값을 옵션으로 지원해야 한다
+- **FR-030**: 시스템은 `waitUntil(condition)` 함수를 제공하여 조건이 충족될 때까지 대기해야 한다
+- **FR-031**: 시스템은 waitUntil에서 폴링 간격과 타임아웃을 설정할 수 있어야 한다
+- **FR-032**: 시스템은 `waitFor(count, ms, callback)` 함수를 제공하여 반복 대기를 지원해야 한다
+- **FR-033**: 시스템은 wait에서 unref 옵션을 제공하여 Node.js 프로세스 종료를 막지 않도록 설정할 수 있어야 한다
+
 #### NestJS 통합 모듈
 
 - **FR-013**: 시스템은 `@Retryable()` 메서드 데코레이터를 제공해야 한다
@@ -155,6 +184,7 @@ NestJS 개발자가 데코레이터와 모듈로 쉽게 통합하여 기존 Nest
 - **TimeoutOptions**: 타임아웃 설정 (시간, 폴백 값, cleanup 함수)
 - **LimitOptions**: 동시성 제한 설정 (최대 동시 실행 수, 우선순위)
 - **LimitFunction**: pLimit이 반환하는 함수 인스턴스 (상태 조회, 동시성 조정 메서드)
+- **WaitOptions**: 대기 설정 (signal, value, unref)
 - **RetryError**: 모든 재시도 실패 시 발생하는 에러
 - **TimeoutError**: 타임아웃 발생 시 발생하는 에러
 - **AbortError**: 사용자 취소 시 발생하는 에러

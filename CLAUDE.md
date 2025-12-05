@@ -36,15 +36,17 @@ npm-library/
 
 ## 하위 모듈
 
-| 모듈 | 설명 |
-|------|------|
+| 모듈                                      | 설명                 |
+| ----------------------------------------- | -------------------- |
 | [traceable](packages/traceable/CLAUDE.md) | Traceable 라이브러리 |
 
 ## Active Technologies
+
 - TypeScript 5.7+ (ES2022) (004-universal-tracer)
 - N/A (in-memory CLS) (004-universal-tracer)
 - TypeScript 5.7+ (ES2022, strict mode) + Zero dependency (core), @nestjs/common ^10.0.0 || ^11.0.0 (peerDependency) (001-async-utils)
 - N/A (in-memory state only) (001-async-utils)
 
 ## Recent Changes
+
 - 004-universal-tracer: Added TypeScript 5.7+ (ES2022)

@@ -1,24 +1,57 @@
 {
   "$schema": "https://turbo.build/schema.json",
+  "globalDependencies": ["**/.env.*local"],
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
-      "outputs": ["dist/**"]
+      "outputs": ["dist/**", ".next/**", "!.next/cache/**"],
+      "env": ["NODE_ENV"]
     },
     "dev": {
       "cache": false,
       "persistent": true
     },
     "lint": {
-      "dependsOn": ["^build"]
+      "dependsOn": [],
+      "outputs": [".eslintcache"]
     },
-    "test": {
-      "dependsOn": ["build"]
+    "lint:fix": {
+      "dependsOn": [],
+      "outputs": [".eslintcache"],
+      "cache": false
+    },
+    "format": {
+      "dependsOn": [],
+      "cache": false
+    },
+    "format:check": {
+      "dependsOn": [],
+      "outputs": []
     },
     "typecheck": {
-      "dependsOn": ["^build"]
+      "dependsOn": ["^build"],
+      "outputs": [],
+      "inputs": ["src/**/*.ts", "src/**/*.tsx", "tsconfig.json", "tsconfig.*.json"]
+    },
+    "test": {
+      "dependsOn": ["build"],
+      "outputs": ["coverage/**"],
+      "inputs": ["src/**/*.ts", "src/**/*.tsx", "test/**/*.ts", "test/**/*.tsx"]
+    },
+    "test:coverage": {
+      "dependsOn": ["build"],
+      "outputs": ["coverage/**"],
+      "inputs": ["src/**/*.ts", "src/**/*.tsx", "test/**/*.ts", "test/**/*.tsx"]
     },
     "clean": {
+      "cache": false
+    },
+    "prepare": {
+      "dependsOn": [],
+      "cache": false
+    },
+    "pre-commit": {
+      "dependsOn": ["^build"],
       "cache": false
     }
   }

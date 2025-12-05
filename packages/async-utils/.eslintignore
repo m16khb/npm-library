@@ -1,0 +1,9 @@
+dist/
+node_modules/
+coverage/
+*.min.js
+*.d.ts
+*.log
+.env*
+.vscode/
+.idea/
