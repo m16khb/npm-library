@@ -1,196 +1,433 @@
+# @npm-library/async-utils API Contract
+# Version: 1.0.0
+# Date: 2025-12-05
+
 openapi: 3.1.0
 info:
-  title: Async Utils Library API
-  description: Internal API contracts for async utilities (for documentation purposes)
+  title: "@npm-library/async-utils API Contract"
+  description: |
+    비동기 작업 제어 라이브러리 API 계약 문서.
+    이 문서는 HTTP API가 아닌 TypeScript 라이브러리 API를 문서화합니다.
   version: 1.0.0
+  license:
+    name: MIT
 
-# Note: This is a library, not a REST API. This document defines the function signatures
-# and behaviors for TypeScript implementation reference.
+# Note: This is a TypeScript library, not an HTTP API.
+# We use OpenAPI format for structured documentation of the library interface.
 
 components:
   schemas:
+    # ===================
+    # Core Types
+    # ===================
+
+    RetryStrategy:
+      type: object
+      description: 재시도 전략 인터페이스
+      required:
+        - shouldRetry
+        - getDelay
+      properties:
+        shouldRetry:
+          type: function
+          description: "(error: Error, attempt: number, maxAttempts: number) => boolean"
+        getDelay:
+          type: function
+          description: "(attempt: number) => number"
+
     RetryOptions:
       type: object
+      description: retry 함수 옵션
       properties:
-        retries:
+        maxAttempts:
           type: integer
+          minimum: 0
           default: 3
-          description: Maximum number of retry attempts
-        factor:
+          description: 최대 재시도 횟수 (총 시도 = maxAttempts + 1)
+        strategy:
+          $ref: '#/components/schemas/RetryStrategy'
+          description: 백오프 전략 (기본값 ExponentialBackoff)
+        retryIf:
+          type: function
+          description: "(error: Error) => boolean - 재시도 조건 필터"
+        signal:
+          type: AbortSignal
+          description: 취소용 AbortSignal
+        onRetry:
+          type: function
+          description: "(error: Error, attempt: number) => void - 재시도 콜백"
+
+    ExponentialBackoffOptions:
+      type: object
+      description: 지수 백오프 설정
+      properties:
+        baseDelay:
+          type: integer
+          minimum: 0
+          default: 100
+          description: 기본 지연 시간 (ms)
+        maxDelay:
+          type: integer
+          minimum: 0
+          default: 10000
+          description: 최대 지연 시간 (ms)
+        multiplier:
           type: number
+          minimum: 1
           default: 2
-          description: Exponential backoff factor
-        minTimeout:
-          type: integer
-          default: 1000
-          description: Minimum delay in milliseconds
-        maxTimeout:
-          type: integer
-          default: 30000
-          description: Maximum delay in milliseconds
-        randomize:
+          description: 증가 배율
+        jitter:
           type: boolean
           default: false
-          description: Add jitter to prevent thundering herd
-        shouldRetry:
-          type: string
-          description: Function to determine if error should be retried
-        onFailedAttempt:
-          type: string
-          description: Callback function on failed attempt
-        signal:
-          type: string
-          description: AbortSignal for cancellation
+          description: 지터(jitter) 사용 여부
+
+    LinearBackoffOptions:
+      type: object
+      description: 선형 백오프 설정
+      properties:
+        delay:
+          type: integer
+          minimum: 0
+          default: 1000
+          description: 고정 지연 시간 (ms)
 
     TimeoutOptions:
       type: object
+      description: pTimeout 함수 옵션
       required:
         - milliseconds
       properties:
         milliseconds:
           type: integer
-          description: Timeout duration in milliseconds
-        message:
-          oneOf:
-            - type: string
-            - type: string
-            - type: boolean
-          description: Custom timeout message
+          minimum: 1
+          description: 타임아웃 시간 (ms)
         fallback:
-          type: string
-          description: Fallback function
+          description: "T | (() => T | Promise<T>) - 타임아웃 시 반환할 폴백"
         signal:
-          type: string
-          description: AbortSignal for cancellation
-        customTimers:
-          type: object
-          properties:
-            setTimeout:
-              type: string
-            clearTimeout:
-              type: string
+          type: AbortSignal
+          description: 취소용 AbortSignal
+        onTimeout:
+          type: function
+          description: "() => void - 타임아웃 발생 시 콜백"
+        cleanup:
+          type: function
+          description: "() => void | Promise<void> - 정리 함수"
 
-    ConcurrencyLimit:
+    LimitTaskOptions:
       type: object
-      description: Interface for concurrency management
+      description: 작업 실행 옵션
+      properties:
+        priority:
+          type: integer
+          minimum: 0
+          maximum: 10
+          default: 5
+          description: 우선순위 (숫자가 클수록 높은 우선순위)
+
+    LimitFunction:
+      type: object
+      description: pLimit이 반환하는 동시성 제한 함수
       properties:
         activeCount:
-          type: string
-          description: Returns number of active operations
+          type: integer
+          readOnly: true
+          description: 현재 실행 중인 작업 수
         pendingCount:
-          type: string
-          description: Returns number of queued operations
-        limit:
-          type: string
-          description: Limits function execution
+          type: integer
+          readOnly: true
+          description: 대기 중인 작업 수
         clearQueue:
-          type: string
-          description: Clears pending queue
+          type: function
+          description: "() => void - 대기 큐 비우기"
+        setConcurrency:
+          type: function
+          description: "(n: number) => void - 동시성 동적 조정"
 
-    SleepOptions:
-      type: object
-      properties:
-        signal:
-          type: string
-          description: AbortSignal for cancellation
-        value:
-          description: Value to resolve with
+    # ===================
+    # Error Types
+    # ===================
 
     RetryError:
       type: object
+      description: 모든 재시도 실패 시 발생
+      allOf:
+        - $ref: '#/components/schemas/Error'
       properties:
         name:
           type: string
-          example: 'RetryError'
-        message:
-          type: string
-        attemptNumber:
+          const: "RetryError"
+        attempts:
           type: integer
-        retriesLeft:
-          type: integer
-        cause:
-          type: object
-          description: Original error
+          description: 총 시도 횟수
 
     TimeoutError:
       type: object
+      description: 타임아웃 발생 시 발생
+      allOf:
+        - $ref: '#/components/schemas/Error'
       properties:
         name:
           type: string
-          example: 'TimeoutError'
-        message:
-          type: string
+          const: "TimeoutError"
+        milliseconds:
+          type: integer
+          description: 타임아웃 시간 (ms)
 
     AbortError:
+      type: object
+      description: 사용자 취소 시 발생
+      allOf:
+        - $ref: '#/components/schemas/Error'
+      properties:
+        name:
+          type: string
+          const: "AbortError"
+
+    Error:
       type: object
       properties:
         name:
           type: string
-          example: 'AbortError'
         message:
           type: string
+        cause:
+          type: object
+          description: 원본 에러 (ES2022 error cause)
 
-# Function signatures (for documentation)
+    # ===================
+    # NestJS Types
+    # ===================
+
+    AsyncUtilsModuleOptions:
+      type: object
+      description: AsyncUtilsModule.forRoot() 옵션
+      properties:
+        retry:
+          $ref: '#/components/schemas/RetryOptions'
+          description: 전역 재시도 설정
+        timeout:
+          type: object
+          properties:
+            milliseconds:
+              type: integer
+            onTimeout:
+              type: function
+          description: 전역 타임아웃 설정
+        concurrency:
+          type: object
+          properties:
+            defaultLimit:
+              type: integer
+              minimum: 1
+          description: 전역 동시성 설정
+
+    RetryableOptions:
+      type: object
+      description: "@Retryable() 데코레이터 옵션"
+      properties:
+        maxAttempts:
+          type: integer
+          minimum: 0
+        strategy:
+          oneOf:
+            - type: string
+              enum: [exponential, linear]
+            - $ref: '#/components/schemas/RetryStrategy'
+        retryIf:
+          type: function
+        onRetry:
+          type: function
+
+    TimeoutDecoratorOptions:
+      type: object
+      description: "@Timeout() 데코레이터 옵션"
+      required:
+        - milliseconds
+      properties:
+        milliseconds:
+          oneOf:
+            - type: integer
+            - type: string
+              description: ConfigService 키
+        onTimeout:
+          type: function
+
+    ConcurrencyLimitOptions:
+      type: object
+      description: "@ConcurrencyLimit() 데코레이터 옵션"
+      required:
+        - limit
+      properties:
+        limit:
+          type: integer
+          minimum: 1
+        scope:
+          type: string
+          enum: [class, method, global]
+          default: class
+
+# ===================
+# API Functions
+# ===================
+
 paths:
-  /retry:
-    summary: 'retry<T>(fn: () => Promise<T>, options?: RetryOptions): Promise<T>'
+  /core/retry:
     description: |
-      Execute function with retry logic and exponential backoff.
+      ## retry<T>(fn, options?)
 
-      Examples:
+      비동기 함수를 재시도합니다.
+
+      ### Signature
       ```typescript
-      await retry(() => fetch(url), { retries: 5, factor: 2 });
+      function retry<T>(
+        fn: (signal?: AbortSignal) => Promise<T>,
+        options?: RetryOptions
+      ): Promise<T>
       ```
 
-  /timeout:
-    summary: 'timeout<T>(promise: Promise<T>, options: TimeoutOptions): Promise<T>'
-    description: |
-      Add timeout to promise with cancellation support.
-
-      Examples:
+      ### Example
       ```typescript
-      await timeout(fetch(url), { milliseconds: 5000 });
+      import { retry } from '@npm-library/async-utils';
+
+      const result = await retry(
+        () => fetch('https://api.example.com/data'),
+        { maxAttempts: 3 }
+      );
       ```
 
-  /concurrency:
-    summary: 'createConcurrencyLimit(concurrency: number): ConcurrencyLimit'
-    description: |
-      Create concurrency manager to limit simultaneous operations.
+      ### Throws
+      - RetryError: 모든 재시도 실패
+      - AbortError: AbortSignal로 취소
 
-      Examples:
+  /core/pTimeout:
+    description: |
+      ## pTimeout<T>(promise, options)
+
+      Promise에 타임아웃을 적용합니다.
+
+      ### Signature
       ```typescript
-      const limit = createConcurrencyLimit(5);
-      await limit.limit(() => heavyOperation());
+      function pTimeout<T>(
+        promise: Promise<T>,
+        options: TimeoutOptions<T>
+      ): Promise<T>
       ```
 
-  /sleep:
-    summary: 'sleep(ms: number, options?: SleepOptions): Promise<void>'
-    description: |
-      Sleep for specified milliseconds with cancellation support.
-
-      Examples:
+      ### Example
       ```typescript
-      await sleep(1000);
-      await sleep(5000, { signal: abortController.signal });
+      import { pTimeout } from '@npm-library/async-utils';
+
+      const result = await pTimeout(
+        fetch('https://api.example.com/data'),
+        { milliseconds: 5000 }
+      );
       ```
 
-  /delay:
-    summary: 'rangeDelay(min: number, max: number, options?: SleepOptions): Promise<void>'
-    description: |
-      Sleep for random duration between min and max.
+      ### Throws
+      - TimeoutError: 타임아웃 발생 (fallback 미설정 시)
+      - AbortError: AbortSignal로 취소
 
-      Examples:
+  /core/pLimit:
+    description: |
+      ## pLimit(concurrency)
+
+      동시성 제한 함수를 생성합니다.
+
+      ### Signature
       ```typescript
-      await rangeDelay(1000, 2000);
+      function pLimit(concurrency: number): LimitFunction
       ```
 
-  /helpers:
-    summary: 'Utility functions for promise handling'
-    description: |
+      ### Example
       ```typescript
-      // Create promise with resolvers
-      const { promise, resolve, reject } = withResolvers<T>();
+      import { pLimit } from '@npm-library/async-utils';
 
-      // Convert promise to result tuple
-      const [data, error] = await toResult(() => riskyOperation());
+      const limit = pLimit(5);
+
+      const results = await Promise.all(
+        urls.map(url => limit(() => fetch(url)))
+      );
+      ```
+
+      ### Throws
+      - RangeError: concurrency < 1
+
+  /core/strategies:
+    description: |
+      ## 백오프 전략
+
+      ### ExponentialBackoff
+      ```typescript
+      class ExponentialBackoff implements RetryStrategy {
+        constructor(options?: ExponentialBackoffOptions)
+      }
+      ```
+
+      ### LinearBackoff
+      ```typescript
+      class LinearBackoff implements RetryStrategy {
+        constructor(options?: LinearBackoffOptions)
+      }
+      ```
+
+  /nestjs/module:
+    description: |
+      ## AsyncUtilsModule
+
+      NestJS 모듈 설정
+
+      ### forRoot
+      ```typescript
+      AsyncUtilsModule.forRoot(options?: AsyncUtilsModuleOptions)
+      ```
+
+      ### forRootAsync
+      ```typescript
+      AsyncUtilsModule.forRootAsync({
+        imports: [ConfigModule],
+        inject: [ConfigService],
+        useFactory: (config) => ({
+          retry: { maxAttempts: config.get('RETRY_ATTEMPTS') }
+        })
+      })
+      ```
+
+  /nestjs/decorators:
+    description: |
+      ## 데코레이터
+
+      ### @Retryable()
+      ```typescript
+      @Retryable({ maxAttempts: 3, strategy: 'exponential' })
+      async fetchData() { ... }
+      ```
+
+      ### @Timeout()
+      ```typescript
+      @Timeout(5000)
+      async fetchData() { ... }
+      ```
+
+      ### @ConcurrencyLimit()
+      ```typescript
+      @ConcurrencyLimit(10)
+      async processItem(item) { ... }
+      ```
+
+  /nestjs/interceptors:
+    description: |
+      ## 인터셉터
+
+      ### RetryInterceptor
+      ```typescript
+      @UseInterceptors(RetryInterceptor)
+      @Controller()
+      export class AppController { ... }
+      ```
+
+      ### TimeoutInterceptor
+      ```typescript
+      @UseInterceptors(TimeoutInterceptor)
+      @Controller()
+      export class AppController { ... }
       ```

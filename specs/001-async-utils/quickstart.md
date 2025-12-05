@@ -1,304 +1,305 @@
-# Quick Start: Async Utils Library
+# Quickstart: @npm-library/async-utils
 
-## Installation
+**목표**: 5분 안에 기본 기능을 사용해보기
+
+## 설치
 
 ```bash
-npm install @org/async-utils
-# or
-pnpm add @org/async-utils
-# or
-yarn add @org/async-utils
+# npm
+npm install @npm-library/async-utils
+
+# pnpm
+pnpm add @npm-library/async-utils
+
+# yarn
+yarn add @npm-library/async-utils
 ```
 
-## Basic Usage
+## 기본 사용법
 
-### 1. Retry with Exponential Backoff
+### 1. Retry (재시도)
 
 ```typescript
-import { retry } from '@org/async-utils';
+import { retry, RetryError } from '@npm-library/async-utils';
 
-// Simple retry (default: 3 attempts)
-const result = await retry(async () => {
-  const response = await fetch('https://api.example.com');
-  if (!response.ok) throw new Error('API error');
-  return response.json();
-});
+// 기본 사용 (3회 재시도, 지수 백오프)
+const data = await retry(() => fetch('/api/data'));
 
-// Advanced configuration
-const data = await retry(
-  () => database.insert(record),
+// 옵션 지정
+const result = await retry(
+  () => fetch('/api/data'),
   {
-    retries: 5,
-    factor: 2,
-    minTimeout: 1000,
-    maxTimeout: 30000,
-    randomize: true, // Add jitter
-    shouldRetry: (error) => {
-      // Only retry network errors
-      return error.name === 'NetworkError';
-    },
-    onFailedAttempt: (error) => {
-      console.log(`Attempt ${error.attemptNumber} failed: ${error.message}`);
-    },
-    signal: abortController.signal
+    maxAttempts: 5,           // 5회 재시도 (총 6회 시도)
+    retryIf: (err) =>         // 특정 에러만 재시도
+      err.message.includes('ECONNRESET'),
+    onRetry: (err, attempt) => // 재시도 로깅
+      console.log(`Retry ${attempt}: ${err.message}`),
   }
 );
+
+// 에러 처리
+try {
+  await retry(() => failingOperation());
+} catch (err) {
+  if (err instanceof RetryError) {
+    console.log(`${err.attempts}번 시도 후 실패: ${err.cause}`);
+  }
+}
 ```
 
-### 2. Timeout Protection
+### 2. Timeout (타임아웃)
 
 ```typescript
-import { timeout } from '@org/async-utils';
+import { pTimeout, TimeoutError } from '@npm-library/async-utils';
 
-// Basic timeout
-const result = await timeout(
-  fetch('https://slow-api.com'),
+// 기본 사용
+const data = await pTimeout(
+  fetch('/api/slow-endpoint'),
   { milliseconds: 5000 }
 );
 
-// With fallback value
-const data = await timeout(
-  expensiveOperation(),
+// 폴백 값 사용
+const result = await pTimeout(
+  fetch('/api/data'),
   {
     milliseconds: 3000,
-    fallback: () => ({ cached: true, data: defaultData })
+    fallback: { default: true }, // 타임아웃 시 이 값 반환
   }
 );
 
-// Custom error message
+// 에러 처리
 try {
-  await timeout(longOperation(), {
-    milliseconds: 1000,
-    message: 'Operation took too long!'
-  });
-} catch (error) {
-  if (error instanceof TimeoutError) {
-    console.log('Timeout occurred');
+  await pTimeout(slowOperation(), { milliseconds: 1000 });
+} catch (err) {
+  if (err instanceof TimeoutError) {
+    console.log('작업이 시간 초과되었습니다');
   }
 }
 ```
 
-### 3. Concurrency Control
+### 3. Concurrency Limit (동시성 제한)
 
 ```typescript
-import { createConcurrencyLimit } from '@org/async-utils';
+import { pLimit } from '@npm-library/async-utils';
 
-// Limit concurrent operations to 3
-const limit = createConcurrencyLimit(3);
+// 동시에 5개만 실행
+const limit = pLimit(5);
 
-const urls = ['url1', 'url2', 'url3', 'url4', 'url5'];
-const promises = urls.map(url =>
-  limit.limit(async () => {
-    const response = await fetch(url);
-    return response.json();
-  })
-);
-
-const results = await Promise.all(promises);
-
-// Monitor queue status
-console.log(`Active: ${limit.activeCount()}`);
-console.log(`Pending: ${limit.pendingCount()}`);
-```
-
-### 4. Rate Limiting
-
-```typescript
-import { createRateLimit } from '@org/async-utils';
-
-// Limit to 10 requests per second
-const rateLimit = createRateLimit({ interval: 1000, limit: 10 });
-
-// Use with concurrency limit
-const limit = createConcurrencyLimit(5);
+// 100개 작업을 동시에 5개씩 처리
+const urls = Array.from({ length: 100 }, (_, i) => `/api/item/${i}`);
 const results = await Promise.all(
-  items.map(item =>
-    limit.limit(async () => {
-      await rateLimit.acquire();
-      return processItem(item);
-    })
-  )
+  urls.map(url => limit(() => fetch(url)))
 );
-```
 
-### 5. Sleep and Delay
-
-```typescript
-import { sleep, rangeDelay } from '@org/async-utils';
-
-// Sleep for 1 second
-await sleep(1000);
-
-// Sleep with cancellation
-const controller = new AbortController();
-setTimeout(() => controller.abort(), 500);
-try {
-  await sleep(1000, { signal: controller.signal });
-} catch (error) {
-  if (error instanceof AbortError) {
-    console.log('Sleep was aborted');
-  }
-}
-
-// Random delay between 1-3 seconds
-await rangeDelay(1000, 3000);
-
-// Sleep and return a value
-const value = await sleep(1000, { value: 'ready' });
-console.log(value); // 'ready'
-```
-
-### 6. Promise Utilities
-
-```typescript
-import { withResolvers, toResult } from '@org/async-utils';
-
-// Create promise with external resolve/reject
-const { promise, resolve, reject } = withResolvers<string>();
-
-// Later...
-resolve('success');
-
-// Convert promise to result tuple
-const [data, error] = await toResult(async () => {
-  const response = await fetch(url);
-  if (!response.ok) throw new Error('Failed');
-  return response.json();
-});
-
-if (error) {
-  console.error('Error:', error);
-} else {
-  console.log('Data:', data);
-}
-```
-
-## Advanced Patterns
-
-### Retry with Timeout
-
-```typescript
-import { retry, timeout } from '@org/async-utils';
-
-const result = await retry(
-  () => timeout(
-    fetch(apiUrl),
-    { milliseconds: 5000 }
-  ),
-  { retries: 3 }
+// 우선순위 사용
+const important = limit(
+  () => fetch('/api/critical'),
+  { priority: 10 }  // 높은 우선순위
 );
+
+const normal = limit(
+  () => fetch('/api/normal'),
+  { priority: 5 }   // 기본 우선순위
+);
+
+// 상태 확인
+console.log(`실행 중: ${limit.activeCount}, 대기 중: ${limit.pendingCount}`);
 ```
 
-### Cancellation Across Operations
+### 4. 조합 사용
 
 ```typescript
-import {
-  retry,
-  timeout,
-  sleep,
-  createConcurrencyLimit,
-  AbortError
-} from '@org/async-utils';
+import { retry, pTimeout, pLimit } from '@npm-library/async-utils';
 
-const controller = new AbortController();
+const limit = pLimit(3);
 
-// All operations respect the same signal
-const limit = createConcurrencyLimit(3);
-
-try {
-  await Promise.all([
+async function fetchWithRetryAndTimeout(url: string) {
+  return limit(() =>
     retry(
-      () => timeout(fetch(url1), { ms: 5000 }),
-      { signal: controller.signal }
-    ),
-    limit.limit(() =>
-      timeout(fetch(url2), { ms: 3000 })
-    ),
-    sleep(1000, { signal: controller.signal })
-  ]);
-} catch (error) {
-  if (error instanceof AbortError) {
-    console.log('Operations were cancelled');
-  }
+      () => pTimeout(
+        fetch(url),
+        { milliseconds: 5000 }
+      ),
+      { maxAttempts: 2 }
+    )
+  );
 }
 
-// Cancel all operations
-controller.abort();
-```
-
-### Custom Retry Strategy
-
-```typescript
-import { retry, RetryError } from '@org/async-utils';
-
-const result = await retry(
-  async () => {
-    const response = await fetch(url);
-
-    // Custom retry logic
-    if (response.status === 429) {
-      const retryAfter = parseInt(response.headers.get('Retry-After') || '5');
-      throw new RetryError(
-        'Rate limited',
-        1,
-        2,
-        new Error(`Retry after ${retryAfter}s`)
-      );
-    }
-
-    return response.json();
-  },
-  {
-    shouldRetry: (error) => {
-      if (error instanceof RetryError) {
-        // Use custom delay from error
-        return true;
-      }
-      return error.name === 'NetworkError';
-    }
-  }
+// 100개 URL을 동시에 3개씩, 각각 타임아웃 5초, 재시도 2회로 처리
+const urls = getUrls();
+const results = await Promise.all(
+  urls.map(url => fetchWithRetryAndTimeout(url))
 );
 ```
 
-## Migration Guide
-
-### From Promise.race Timeout
+### 5. AbortSignal로 취소
 
 ```typescript
-// Old way
-const timeoutPromise = new Promise((_, reject) => {
-  setTimeout(() => reject(new Error('Timeout')), 5000);
-});
+import { retry, pTimeout, AbortError } from '@npm-library/async-utils';
+
+const controller = new AbortController();
+
+// 3초 후 취소
+setTimeout(() => controller.abort(), 3000);
 
 try {
-  const result = await Promise.race([apiCall(), timeoutPromise]);
-} catch (error) {
-  if (error.message === 'Timeout') {
-    // Handle timeout
-  }
-}
-
-// New way
-import { timeout, TimeoutError } from '@org/async-utils';
-
-try {
-  const result = await timeout(apiCall(), { milliseconds: 5000 });
-} catch (error) {
-  if (error instanceof TimeoutError) {
-    // Handle timeout
+  await retry(
+    () => fetch('/api/slow'),
+    { signal: controller.signal }
+  );
+} catch (err) {
+  if (err instanceof AbortError) {
+    console.log('작업이 취소되었습니다');
   }
 }
 ```
 
-## Tree Shaking
+## NestJS 통합
 
-Import only what you need:
+### 모듈 설정
 
 ```typescript
-// Good - tree-shakable
-import { retry, sleep } from '@org/async-utils';
+// app.module.ts
+import { Module } from '@nestjs/common';
+import { AsyncUtilsModule } from '@npm-library/async-utils/nestjs';
 
-// Even better - individual imports
-import retry from '@org/async-utils/retry';
-import sleep from '@org/async-utils/sleep';
+@Module({
+  imports: [
+    AsyncUtilsModule.forRoot({
+      retry: { maxAttempts: 3 },
+      timeout: { milliseconds: 10000 },
+    }),
+  ],
+})
+export class AppModule {}
 ```
+
+### ConfigService 연동
+
+```typescript
+// app.module.ts
+import { AsyncUtilsModule } from '@npm-library/async-utils/nestjs';
+import { ConfigModule, ConfigService } from '@nestjs/config';
+
+@Module({
+  imports: [
+    ConfigModule.forRoot(),
+    AsyncUtilsModule.forRootAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => ({
+        retry: {
+          maxAttempts: config.get('RETRY_MAX_ATTEMPTS', 3),
+        },
+        timeout: {
+          milliseconds: config.get('DEFAULT_TIMEOUT', 10000),
+        },
+      }),
+    }),
+  ],
+})
+export class AppModule {}
+```
+
+### 데코레이터 사용
+
+```typescript
+// external-api.service.ts
+import { Injectable } from '@nestjs/common';
+import { Retryable, Timeout, ConcurrencyLimit } from '@npm-library/async-utils/nestjs';
+
+@Injectable()
+export class ExternalApiService {
+  @Retryable({ maxAttempts: 3, strategy: 'exponential' })
+  @Timeout(5000)
+  async fetchData(id: string): Promise<Data> {
+    const response = await fetch(`/api/data/${id}`);
+    return response.json();
+  }
+
+  @ConcurrencyLimit(5)
+  async processBatch(items: Item[]): Promise<Result[]> {
+    return Promise.all(items.map(item => this.processItem(item)));
+  }
+}
+```
+
+### 인터셉터 사용
+
+```typescript
+// app.controller.ts
+import { Controller, Get, UseInterceptors } from '@nestjs/common';
+import { RetryInterceptor, TimeoutInterceptor } from '@npm-library/async-utils/nestjs';
+
+@Controller()
+@UseInterceptors(RetryInterceptor, TimeoutInterceptor)
+export class AppController {
+  @Get('data')
+  async getData() {
+    // 이 메서드는 자동으로 재시도와 타임아웃이 적용됩니다
+    return this.externalService.fetchData();
+  }
+}
+```
+
+## 백오프 전략 커스터마이징
+
+```typescript
+import { retry, RetryStrategy } from '@npm-library/async-utils';
+
+// 커스텀 전략 구현
+class JitteredBackoff implements RetryStrategy {
+  constructor(
+    private baseDelay = 100,
+    private maxDelay = 10000
+  ) {}
+
+  shouldRetry(_error: Error, attempt: number, maxAttempts: number): boolean {
+    return attempt < maxAttempts;
+  }
+
+  getDelay(attempt: number): number {
+    const delay = this.baseDelay * Math.pow(2, attempt);
+    const jitter = Math.random() * delay * 0.3; // 30% 지터
+    return Math.min(delay + jitter, this.maxDelay);
+  }
+}
+
+// 사용
+await retry(
+  () => fetch('/api/data'),
+  { strategy: new JitteredBackoff(200, 5000) }
+);
+```
+
+## 타입 임포트
+
+```typescript
+// 타입만 필요한 경우
+import type {
+  RetryOptions,
+  RetryStrategy,
+  TimeoutOptions,
+  LimitFunction,
+  LimitTaskOptions,
+} from '@npm-library/async-utils';
+
+// 에러 클래스
+import {
+  RetryError,
+  TimeoutError,
+  AbortError,
+} from '@npm-library/async-utils';
+
+// 전략 클래스
+import {
+  ExponentialBackoff,
+  LinearBackoff,
+} from '@npm-library/async-utils';
+```
+
+## 다음 단계
+
+- [API 레퍼런스](./contracts/async-utils-api.yaml) - 전체 API 문서
+- [데이터 모델](./data-model.md) - 상세 타입 정의
+- [README.md](../../packages/async-utils/README.md) - 전체 문서
