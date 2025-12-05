@@ -58,7 +58,11 @@ export function wait<T = void>(
   let value: T | undefined;
   let options: WaitOptions | undefined;
 
-  if (valueOrOptions !== undefined && typeof valueOrOptions === 'object' && valueOrOptions !== null) {
+  if (
+    valueOrOptions !== undefined &&
+    typeof valueOrOptions === 'object' &&
+    valueOrOptions !== null
+  ) {
     // wait(ms, options) 형태
     if ('signal' in valueOrOptions || 'unref' in valueOrOptions || 'value' in valueOrOptions) {
       options = valueOrOptions as WaitOptions;

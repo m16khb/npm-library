@@ -22,7 +22,9 @@
     "allowImportingTsExtensions": false,
     "noEmit": false,
     "composite": false,
-    "incremental": false
+    "incremental": false,
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true
   },
   "include": [
     "src/**/*"

@@ -1,7 +1,7 @@
 {
-  "name": "@m16khb/async-utils",
-  "version": "1.0.0",
-  "description": "비동기 작업 제어 라이브러리 - retry, timeout, concurrency control",
+  "name": "@m16khb/nestjs-async-utils",
+  "version": "1.0.2",
+  "description": "NestJS 비동기 작업 제어 라이브러리 - @Retryable, @Timeout, @ConcurrencyLimit 데코레이터",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -47,24 +47,26 @@
     "clean": "rm -rf dist .turbo"
   },
   "keywords": [
-    "async",
-    "retry",
+    "nestjs",
+    "decorator",
+    "retryable",
     "timeout",
     "concurrency",
-    "nestjs",
-    "typescript",
-    "rate-limit"
+    "async",
+    "retry",
+    "rate-limit",
+    "typescript"
   ],
   "author": "m16khb",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/m16khb/async-utils.git"
+    "url": "https://github.com/m16khb/nestjs-async-utils.git"
   },
   "bugs": {
-    "url": "https://github.com/m16khb/async-utils/issues"
+    "url": "https://github.com/m16khb/nestjs-async-utils/issues"
   },
-  "homepage": "https://github.com/m16khb/async-utils#readme",
+  "homepage": "https://github.com/m16khb/nestjs-async-utils#readme",
   "devDependencies": {
     "@nestjs/common": "^10.0.0",
     "@nestjs/core": "^10.0.0",
@@ -72,19 +74,24 @@
     "@sinonjs/fake-timers": "^11.3.1",
     "@types/sinonjs__fake-timers": "^8.1.5",
     "reflect-metadata": "^0.2.0",
+    "rxjs": "^7.8.0",
     "tsup": "^8.0.0",
     "typescript": "^5.7.0",
     "vitest": "^2.0.0"
   },
   "peerDependencies": {
     "@nestjs/common": "^10.0.0 || ^11.0.0",
-    "@nestjs/core": "^10.0.0 || ^11.0.0"
+    "@nestjs/core": "^10.0.0 || ^11.0.0",
+    "rxjs": "^7.0.0"
   },
   "peerDependenciesMeta": {
     "@nestjs/common": {
       "optional": true
     },
     "@nestjs/core": {
+      "optional": true
+    },
+    "rxjs": {
       "optional": true
     }
   },
