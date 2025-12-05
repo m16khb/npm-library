@@ -26,12 +26,12 @@
 
 **Purpose**: Package 초기화 및 기본 구조 생성
 
-- [ ] T001 Create package directory structure in packages/nestjs-traceable/
-- [ ] T002 [S] Initialize package.json with peerDependencies (@nestjs/common, @nestjs/core, rxjs)
-- [ ] T003 [P] Configure tsconfig.json with strict mode and ES2022 target
-- [ ] T004 [P] Configure tsup.config.ts for ESM build
-- [ ] T005 [P] Configure vitest.config.ts for unit/integration tests
-- [ ] T006 [P] Create CLAUDE.md with package documentation
+- [X] T001 Create package directory structure in packages/nestjs-traceable/
+- [X] T002 [S] Initialize package.json with peerDependencies (@nestjs/common, @nestjs/core, rxjs)
+- [X] T003 [P] Configure tsconfig.json with strict mode and ES2022 target
+- [X] T004 [P] Configure tsup.config.ts for ESM build
+- [X] T005 [P] Configure vitest.config.ts for unit/integration tests
+- [X] T006 [P] Create CLAUDE.md with package documentation
 
 ---
 
@@ -43,28 +43,28 @@
 
 ### Core Interfaces
 
-- [ ] T007 [P] Define ITraceContext interface in src/core/interfaces/trace-context.interface.ts
-- [ ] T008 [P] Define ISpan interface in src/core/interfaces/span.interface.ts
-- [ ] T009 [P] Define ITraceIdGenerator interface in src/core/interfaces/trace-id-generator.interface.ts
-- [ ] T010 [P] Define trace types (SpanStatus, etc.) in src/core/types/trace.types.ts
-- [ ] T011 [S] Create core interfaces barrel export in src/core/interfaces/index.ts
+- [X] T007 [P] Define ITraceContext interface in src/core/interfaces/trace-context.interface.ts
+- [X] T008 [P] Define ISpan interface in src/core/interfaces/span.interface.ts
+- [X] T009 [P] Define ITraceIdGenerator interface in src/core/interfaces/trace-id-generator.interface.ts
+- [X] T010 [P] Define trace types (SpanStatus, etc.) in src/core/types/trace.types.ts
+- [X] T011 [S] Create core interfaces barrel export in src/core/interfaces/index.ts
 
 ### Core Generators (TDD)
 
-- [ ] T012 [P] RED: Write TraceId generator tests in test/unit/core/trace-id.generator.test.ts
-- [ ] T013 [P] RED: Write SpanId generator tests in test/unit/core/span-id.generator.test.ts
-- [ ] T014 [S] GREEN: Implement TraceId generator (UUID v4) in src/core/generators/trace-id.generator.ts
-- [ ] T015 [S] GREEN: Implement SpanId generator (8-char hex) in src/core/generators/span-id.generator.ts
-- [ ] T016 [S] Create generators barrel export in src/core/generators/index.ts
+- [X] T012 [P] RED: Write TraceId generator tests in test/unit/core/trace-id.generator.test.ts
+- [X] T013 [P] RED: Write SpanId generator tests in test/unit/core/span-id.generator.test.ts
+- [X] T014 [S] GREEN: Implement TraceId generator (UUID v4) in src/core/generators/trace-id.generator.ts
+- [X] T015 [S] GREEN: Implement SpanId generator (8-char hex) in src/core/generators/span-id.generator.ts
+- [X] T016 [S] Create generators barrel export in src/core/generators/index.ts
 
 ### Core Context (TDD)
 
-- [ ] T017 [S] RED: Write AsyncLocalStorage wrapper tests in test/unit/core/async-storage.test.ts
-- [ ] T018 [S] GREEN: Implement AsyncLocalStorage wrapper in src/core/context/async-storage.ts
-- [ ] T019 [S] RED: Write TraceContext tests in test/unit/core/trace-context.test.ts
-- [ ] T020 [S] GREEN: Implement TraceContext manager in src/core/context/trace-context.ts
-- [ ] T021 [S] Create context barrel export in src/core/context/index.ts
-- [ ] T022 [S] Create core barrel export in src/core/index.ts
+- [X] T017 [S] RED: Write AsyncLocalStorage wrapper tests in test/unit/core/async-storage.test.ts
+- [X] T018 [S] GREEN: Implement AsyncLocalStorage wrapper in src/core/context/async-storage.ts
+- [X] T019 [S] RED: Write TraceContext tests in test/unit/core/trace-context.test.ts
+- [X] T020 [S] GREEN: Implement TraceContext manager in src/core/context/trace-context.ts
+- [X] T021 [S] Create context barrel export in src/core/context/index.ts
+- [X] T022 [S] Create core barrel export in src/core/index.ts
 
 **Checkpoint**: Core Context 완료 - User Story 구현 가능
 
@@ -80,48 +80,48 @@
 
 ### NestJS Module Setup
 
-- [ ] T023 [P] [US1] Define module options interface in src/nestjs/interfaces/module-options.interface.ts
-- [ ] T024 [P] [US1] Define constants (tokens, metadata keys) in src/nestjs/constants.ts
-- [ ] T025 [S] [US1] Create NestJS interfaces barrel export in src/nestjs/interfaces/index.ts
+- [X] T023 [P] [US1] Define module options interface in src/nestjs/interfaces/module-options.interface.ts
+- [X] T024 [P] [US1] Define constants (tokens, metadata keys) in src/nestjs/constants.ts
+- [X] T025 [S] [US1] Create NestJS interfaces barrel export in src/nestjs/interfaces/index.ts
 
 ### TraceModule (TDD)
 
-- [ ] T026 [S] [US1] RED: Write TraceModule tests in test/integration/trace.module.test.ts
-- [ ] T027 [S] [US1] GREEN: Implement TraceModule with forRoot/forRootAsync in src/nestjs/trace.module.ts
+- [X] T026 [S] [US1] RED: Write TraceModule tests in test/integration/trace.module.test.ts
+- [X] T027 [S] [US1] GREEN: Implement TraceModule with forRoot/forRootAsync in src/nestjs/trace.module.ts
 
 ### TraceContextService
 
-- [ ] T028 [S] [US1] RED: Write TraceContextService tests in test/unit/nestjs/trace-context.service.test.ts
-- [ ] T029 [S] [US1] GREEN: Implement TraceContextService in src/nestjs/services/trace-context.service.ts
-- [ ] T030 [S] [US1] Create services barrel export in src/nestjs/services/index.ts
+- [X] T028 [S] [US1] RED: Write TraceContextService tests in test/unit/nestjs/trace-context.service.test.ts
+- [X] T029 [S] [US1] GREEN: Implement TraceContextService in src/nestjs/services/trace-context.service.ts
+- [X] T030 [S] [US1] Create services barrel export in src/nestjs/services/index.ts
 
 ### HTTP Middleware (TDD)
 
-- [ ] T031 [S] [US1] RED: Write HTTP trace middleware tests in test/unit/nestjs/http-trace.middleware.test.ts
-- [ ] T032 [S] [US1] GREEN: Implement HttpTraceMiddleware (traceId 추출/생성/응답헤더) in src/nestjs/middlewares/http-trace.middleware.ts
-- [ ] T033 [S] [US1] Create middlewares barrel export in src/nestjs/middlewares/index.ts
+- [X] T031 [S] [US1] RED: Write HTTP trace middleware tests in test/unit/nestjs/http-trace.middleware.test.ts
+- [X] T032 [S] [US1] GREEN: Implement HttpTraceMiddleware (traceId 추출/생성/응답헤더) in src/nestjs/middlewares/http-trace.middleware.ts
+- [X] T033 [S] [US1] Create middlewares barrel export in src/nestjs/middlewares/index.ts
 
 ### @Trace Decorator (TDD)
 
-- [ ] T034 [S] [US1] RED: Write @Trace decorator tests in test/unit/nestjs/trace.decorator.test.ts
-- [ ] T035 [S] [US1] GREEN: Implement @Trace decorator in src/nestjs/decorators/trace.decorator.ts
-- [ ] T036 [P] [US1] Implement @Traceable class decorator in src/nestjs/decorators/traceable.decorator.ts
-- [ ] T037 [S] [US1] Create decorators barrel export in src/nestjs/decorators/index.ts
+- [X] T034 [S] [US1] RED: Write @Trace decorator tests in test/unit/nestjs/trace.decorator.test.ts
+- [X] T035 [S] [US1] GREEN: Implement @Trace decorator in src/nestjs/decorators/trace.decorator.ts
+- [X] T036 [P] [US1] Implement @Traceable class decorator in src/nestjs/decorators/traceable.decorator.ts
+- [X] T037 [S] [US1] Create decorators barrel export in src/nestjs/decorators/index.ts
 
 ### TraceInterceptor (TDD)
 
-- [ ] T038 [S] [US1] RED: Write TraceInterceptor tests in test/unit/nestjs/trace.interceptor.test.ts
-- [ ] T039 [S] [US1] GREEN: Implement TraceInterceptor in src/nestjs/interceptors/trace.interceptor.ts
-- [ ] T040 [S] [US1] Create interceptors barrel export in src/nestjs/interceptors/index.ts
+- [X] T038 [S] [US1] RED: Write TraceInterceptor tests in test/unit/nestjs/trace.interceptor.test.ts
+- [X] T039 [S] [US1] GREEN: Implement TraceInterceptor in src/nestjs/interceptors/trace.interceptor.ts
+- [X] T040 [S] [US1] Create interceptors barrel export in src/nestjs/interceptors/index.ts
 
 ### NestJS Integration
 
-- [ ] T041 [S] [US1] Create NestJS barrel export in src/nestjs/index.ts
-- [ ] T042 [S] [US1] Create main package barrel export in src/index.ts
+- [X] T041 [S] [US1] Create NestJS barrel export in src/nestjs/index.ts
+- [X] T042 [S] [US1] Create main package barrel export in src/index.ts
 
 ### HTTP Flow Integration Test
 
-- [ ] T043 [S] [US1] Integration test for HTTP flow in test/integration/http-flow.test.ts
+- [ ] T043 [S] [US1] Integration test for HTTP flow in test/integration/http-flow.test.ts (SKIPPED - 미들웨어 자동 설정 후 완료 필요)
 
 **Checkpoint**: US1 완료 - HTTP 요청 추적 가능, MVP 배포 가능
 
@@ -137,25 +137,25 @@
 
 ### Logger Adapter Interface
 
-- [ ] T044 [P] [US2] Define ILoggerAdapter interface in src/adapters/logger.adapter.interface.ts
+- [X] T044 [P] [US2] Define ILoggerAdapter interface in src/core/interfaces/logger.interface.ts
 
 ### NestJS Logger Adapter (TDD)
 
-- [ ] T045 [S] [US2] RED: Write NestJS logger adapter tests in test/unit/adapters/nestjs-logger.adapter.test.ts
-- [ ] T046 [S] [US2] GREEN: Implement NestJSLoggerAdapter in src/adapters/nestjs-logger.adapter.ts
+- [X] T045 [S] [US2] RED: Write NestJS logger adapter tests in test/unit/adapters/nestjs-logger.adapter.test.ts
+- [X] T046 [S] [US2] GREEN: Implement NestJSLoggerAdapter in src/adapters/nestjs-logger.adapter.ts
 
 ### Console Adapter
 
-- [ ] T047 [P] [US2] Implement ConsoleAdapter in src/adapters/console.adapter.ts
+- [X] T047 [P] [US2] Implement ConsoleAdapter in src/adapters/console.adapter.ts
 
 ### Adapters Integration
 
-- [ ] T048 [S] [US2] Create adapters barrel export in src/adapters/index.ts
-- [ ] T049 [S] [US2] Update main barrel export to include adapters
+- [X] T048 [S] [US2] Create adapters barrel export in src/adapters/index.ts
+- [X] T049 [S] [US2] Update main barrel export to include adapters
 
 ### Logger Integration Test
 
-- [ ] T050 [S] [US2] Integration test for logger with trace context in test/integration/logger.test.ts
+- [X] T050 [S] [US2] Integration test for logger with trace context in test/integration/logger.test.ts
 
 **Checkpoint**: US1 + US2 완료 - HTTP 추적 + 로깅 통합 완료
 
@@ -171,13 +171,13 @@
 
 ### Span Management (TDD)
 
-- [ ] T051 [S] [US3] RED: Write span management tests (startSpan, endSpan, nested spans) in test/unit/core/span.test.ts
-- [ ] T052 [S] [US3] GREEN: Enhance TraceContext with span stack management in src/core/context/trace-context.ts
-- [ ] T053 [S] [US3] Update TraceContextService for span operations in src/nestjs/services/trace-context.service.ts
+- [X] T051 [S] [US3] RED/GREEN: Span management tests and implementation in test/unit/core/span.test.ts, src/core/context/span-manager.ts
+- [X] T052 [S] [US3] GREEN: Enhance TraceContext with span stack management in src/core/context/trace-context.ts
+- [X] T053 [S] [US3] Update TraceContextService for span operations (createChild already supported)
 
 ### Nested Span Integration Test
 
-- [ ] T054 [S] [US3] Integration test for nested spans in test/integration/nested-span.test.ts
+- [X] T054 [S] [US3] Integration test for nested spans in test/integration/nested-span.test.ts
 
 **Checkpoint**: US1 + US2 + US3 완료 - 중첩 Span 추적 가능
 

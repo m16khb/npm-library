@@ -2,227 +2,737 @@
 
 **Feature Branch**: `003-nestjs-traceable`
 **Created**: 2025-12-05
-**Status**: Draft
-**Updated**: 2025-12-05 (CLS 통합 지원 추가)
-**Input**: NestJS 백엔드 애플리케이션에서 다양한 통신 채널(HTTP, gRPC, Cron, BullMQ)을 통해 요청을 추적하기 위한 traceId 기반 분산 추적 라이브러리
+**Status**: Implemented
+**Updated**: 2025-12-06 (구현 기반 전면 재작성)
+**Package**: `@m16khb/nestjs-traceable`
 
-## Clarifications
+## Overview
 
-### Session 2025-12-05
+NestJS 애플리케이션에서 **traceId 기반 요청 추적**을 제공하는 라이브러리.
+다양한 통신 채널(HTTP, gRPC, Kafka, Cron, BullMQ)을 통한 요청을 단일 traceId로 연결하여 분산 시스템의 디버깅과 모니터링을 단순화한다.
 
-- Q: 추적 시스템 오류 발생 시 요청 처리 정책? → A: Silent Continue - 추적 없이 요청 처리 계속, 내부 경고 로그만 출력
-- Q: 외부 traceId 형식 검증 수준? → A: Lenient - 비어있지 않은 문자열이면 허용, 길이 제한(128자)만 적용
-- Q: 추적 샘플링 지원 여부? → A: No Sampling - 모든 요청 100% 추적, 샘플링 기능 없음 (단순성 우선)
-- Q: CLS(Continuation Local Storage) 구현 방식 선택? → A: 두 가지 방식 모두 지원
-  - **AsyncLocalStorage** (기본): Node.js 내장 API, Zero dependency
-  - **nestjs-cls**: 추가 기능 필요 시 선택적 사용
+### 핵심 가치
 
-## User Scenarios & Testing *(mandatory)*
-
-### User Story 1 - HTTP 요청 추적 (Priority: P1)
-
-백엔드 개발자가 HTTP 요청의 전체 처리 흐름을 단일 traceId로 추적하여 디버깅 및 모니터링을 수행한다.
-
-**Why this priority**: HTTP는 가장 일반적인 진입점이며, 분산 추적의 핵심 가치를 즉시 제공한다. 이 기능만으로도 대부분의 디버깅 시나리오를 해결할 수 있다.
-
-**Independent Test**: HTTP 요청을 보내고 응답 헤더와 로그에서 동일한 traceId를 확인하여 전체 요청 흐름 추적이 가능함을 검증한다.
-
-**Acceptance Scenarios**:
-
-1. **Given** HTTP 요청이 X-Trace-Id 헤더 없이 도착, **When** 컨트롤러가 요청을 처리, **Then** 시스템이 새로운 traceId를 생성하고 모든 관련 로그에 동일한 traceId가 포함된다
-2. **Given** HTTP 요청이 X-Trace-Id 헤더와 함께 도착, **When** 컨트롤러가 요청을 처리, **Then** 시스템이 전달받은 traceId를 사용하고 응답 헤더에 동일한 traceId를 반환한다
-3. **Given** HTTP 요청 처리 중 여러 서비스 메서드 호출, **When** 각 메서드에서 로그 출력, **Then** 모든 로그에 동일한 traceId와 각각 다른 spanId가 포함된다
+- **단순성**: nestjs-cls 기반의 검증된 CLS 구현 활용
+- **유연성**: 추상 클래스 상속 패턴으로 다양한 진입점 지원
+- **통합성**: Winston 기반 로거로 traceId 자동 주입
+- **실용성**: spanId 관리는 OpenTelemetry에 위임, traceId만 집중 관리
 
 ---
 
-### User Story 2 - 로깅 통합 (Priority: P1)
+## Glossary (용어 정의)
 
-백엔드 개발자가 기존 로거에 traceId/spanId를 자동으로 주입하여 구조화된 로그를 생성한다.
-
-**Why this priority**: 로깅은 모든 통신 채널에서 공통으로 사용되며, traceId 없는 로그는 분산 추적의 가치를 제공하지 못한다.
-
-**Independent Test**: 로거 어댑터를 설정하고 로그 출력 시 traceId/spanId가 자동 포함되는지 확인한다.
-
-**Acceptance Scenarios**:
-
-1. **Given** TraceContext가 활성화된 상태, **When** 애플리케이션 로거로 메시지 출력, **Then** 로그에 현재 traceId와 spanId가 자동 포함된다
-2. **Given** TraceContext가 없는 상태, **When** 애플리케이션 로거로 메시지 출력, **Then** 로그에 traceId/spanId 필드가 없거나 빈 값으로 출력된다
-3. **Given** 커스텀 로거 어댑터 설정, **When** 로그 출력, **Then** 어댑터가 제공하는 형식에 맞게 traceId/spanId가 포함된다
-
----
-
-### User Story 3 - Span 기반 중첩 추적 (Priority: P2)
-
-백엔드 개발자가 복잡한 비즈니스 로직 내 개별 작업 단위를 span으로 구분하여 상세한 실행 흐름을 파악한다.
-
-**Why this priority**: span 기반 추적은 성능 병목 식별과 복잡한 로직 디버깅에 필수적이나, 기본 traceId 추적이 먼저 동작해야 한다.
-
-**Independent Test**: 중첩된 메서드 호출에서 각각 다른 spanId가 생성되고 parent-child 관계가 유지되는지 확인한다.
-
-**Acceptance Scenarios**:
-
-1. **Given** 부모 span이 활성화된 상태, **When** 새로운 span을 시작, **Then** 자식 span이 생성되고 parentSpanId가 부모 span의 spanId와 일치한다
-2. **Given** 중첩된 span 구조 (A → B → C), **When** 각 span에서 로그 출력, **Then** 모든 로그에 동일한 traceId와 각각의 spanId가 포함되며 parent-child 관계가 추적된다
-3. **Given** span이 시작된 상태, **When** span을 종료, **Then** 컨텍스트가 부모 span으로 복원된다
+| 용어 | 정의 |
+|------|------|
+| **traceId** | 단일 요청의 전체 수명 주기를 식별하는 고유 식별자. UUID v4 형식 (예: `abc12345-def6-7890-ghij-klmnopqrstuv`) |
+| **CLS** | Continuation Local Storage. Node.js AsyncLocalStorage를 활용하여 비동기 컨텍스트 간 데이터를 전파하는 메커니즘 |
+| **AsyncLocalStorage** | Node.js 내장 API. 비동기 호출 체인에서 컨텍스트를 유지하는 저장소 |
+| **nestjs-cls** | NestJS용 CLS 라이브러리. AsyncLocalStorage를 NestJS 생명주기에 맞게 래핑 |
+| **Interceptor** | NestJS의 AOP(관점 지향 프로그래밍) 구현체. 요청 전후로 로직을 삽입 |
+| **Processor** | BullMQ의 작업 처리기. Queue에서 job을 가져와 실행하는 Worker |
+| **Job** | BullMQ의 작업 단위. 데이터와 메타데이터를 포함한 비동기 작업 |
+| **Metadata (gRPC)** | gRPC 요청/응답에 첨부되는 키-값 쌍. HTTP 헤더와 유사한 역할 |
+| **Header (Kafka)** | Kafka 메시지에 첨부되는 메타데이터. 메시지 내용과 별개로 전송 |
+| **Silent Continue** | 오류 발생 시 서비스 가용성을 우선하여 추적 없이 요청 처리를 계속하는 정책 |
+| **Lenient Validation** | 엄격하지 않은 검증 정책. 비어있지 않고 128자 이하면 유효한 traceId로 허용 |
 
 ---
 
-### User Story 4 - BullMQ Job 추적 (Priority: P2)
+## Architecture
 
-백엔드 개발자가 비동기 작업 큐의 job 처리 흐름을 원본 요청과 연결하여 추적한다.
+### 설계 원칙
 
-**Why this priority**: 비동기 처리는 현대 백엔드의 핵심 패턴이며, job과 원본 요청의 연결은 디버깅에 중요하다.
+1. **nestjs-cls 기반**: Node.js AsyncLocalStorage를 래핑한 nestjs-cls를 CLS 구현으로 사용
+2. **traceId 전용**: spanId/parentSpanId는 OpenTelemetry에 위임, 본 라이브러리는 traceId만 관리
+3. **추상 클래스 패턴**: 상속을 통한 보일러플레이트 제거
+4. **선택적 의존성**: 사용하는 기능에 따라 필요한 패키지만 설치
 
-**Independent Test**: HTTP 요청에서 생성된 job의 처리 로그에서 원본 traceId를 확인한다.
+### 컴포넌트 구조
 
-**Acceptance Scenarios**:
+```
+@m16khb/nestjs-traceable
+├── TraceModule              # 핵심 모듈 (ClsModule 래핑)
+├── TraceContextService      # traceId 접근 API
+├── Abstracts/
+│   ├── TraceableCronService    # Cron 서비스 추상 클래스
+│   ├── TraceableProcessor      # BullMQ Processor 추상 클래스
+│   └── TraceableQueueService   # Queue 서비스 추상 클래스
+├── Interceptors/
+│   ├── TraceInterceptor        # HTTP 요청 인터셉터
+│   ├── TraceGrpcInterceptor    # gRPC 인터셉터
+│   └── TraceKafkaInterceptor   # Kafka 인터셉터
+├── Logger/
+│   ├── TraceableLogger         # Winston 기반 로거
+│   └── TraceableLoggerModule   # 로거 모듈
+└── Decorators/
+    ├── @Trace                  # 메서드 추적 데코레이터
+    └── @Traceable              # 클래스 추적 데코레이터
+```
 
-1. **Given** TraceContext가 활성화된 상태에서 job 생성, **When** job을 큐에 추가, **Then** job 데이터에 현재 traceId가 포함된다
-2. **Given** traceId가 포함된 job, **When** Processor가 job을 처리, **Then** job의 traceId가 새로운 TraceContext로 복원되어 처리 로그에 포함된다
-3. **Given** traceId 없이 생성된 job, **When** Processor가 job을 처리, **Then** 새로운 traceId가 자동 생성된다
+### 데이터 흐름
+
+```
+HTTP Request (X-Trace-Id 헤더)
+    ↓
+ClsModule.middleware (traceId 추출/생성 → CLS 저장)
+    ↓
+Controller/Service (TraceContextService.getTraceId())
+    ↓
+TraceableLogger.log() (CLS에서 traceId 자동 주입)
+    ↓
+BullMQ Job 생성 (job.data.traceId 자동 포함)
+    ↓
+TraceableProcessor (traceId 복원 → CLS 설정)
+    ↓
+로그 연속성 유지
+```
+
+### 시퀀스 다이어그램: HTTP → BullMQ 전체 흐름
+
+```mermaid
+sequenceDiagram
+    participant Client
+    participant Middleware as ClsModule.middleware
+    participant Controller
+    participant Service
+    participant Queue as TraceableQueueService
+    participant BullMQ
+    participant Processor as TraceableProcessor
+    participant Logger as TraceableLogger
+
+    Client->>Middleware: HTTP Request (X-Trace-Id: abc123)
+    Middleware->>Middleware: CLS 컨텍스트 생성
+    Middleware->>Middleware: traceId 추출/생성 → CLS 저장
+    Middleware->>Controller: 요청 전달
+
+    Controller->>Service: 비즈니스 로직 호출
+    Service->>Logger: log("처리 시작")
+    Logger->>Logger: CLS에서 traceId 조회
+    Logger-->>Service: [abc123] 처리 시작
+
+    Service->>Queue: addJob("payment", {orderId})
+    Queue->>Queue: CLS에서 traceId 조회
+    Queue->>BullMQ: job.data = {orderId, traceId: "abc123"}
+
+    Service-->>Controller: 응답
+    Controller-->>Client: HTTP Response (X-Trace-Id: abc123)
+
+    Note over BullMQ,Processor: 비동기 처리
+
+    BullMQ->>Processor: process(job)
+    Processor->>Processor: 새 CLS 컨텍스트 생성
+    Processor->>Processor: job.data.traceId → CLS 저장
+    Processor->>Logger: log("Job 처리 시작")
+    Logger-->>Processor: [abc123] Job 처리 시작
+```
+
+### 클래스 다이어그램: 핵심 컴포넌트 관계
+
+```mermaid
+classDiagram
+    class TraceModule {
+        +forRoot(options) DynamicModule
+        +forRootAsync(options) DynamicModule
+        +register(options) DynamicModule
+    }
+
+    class TraceContextService {
+        -cls: ClsService
+        -headerName: string
+        +getTraceId() string|undefined
+        +setTraceId(traceId) void
+        +generateTraceId() string
+        +hasContext() boolean
+        +isActive() boolean
+        +run(fn, traceId?) T
+        +runAsync(fn, traceId?) Promise~T~
+    }
+
+    class TraceableCronService {
+        <<abstract>>
+        #cls: ClsService
+        #runWithTrace(fn, traceId?) Promise~T~
+        #getTraceId() string|undefined
+    }
+
+    class TraceableProcessor {
+        <<abstract>>
+        #cls: ClsService
+        +process(job) Promise~TResult~
+        #executeJob(job)* Promise~TResult~
+        #getTraceId() string|undefined
+    }
+
+    class TraceableQueueService {
+        <<abstract>>
+        #cls: ClsService
+        #queue: Queue
+        +addJob(name, data, opts?) Promise~Job~
+        +addBulkJobs(jobs) Promise~Job[]~
+        #getTraceId() string|undefined
+    }
+
+    class TraceableLogger {
+        -winston: WinstonLogger
+        -cls: ClsService
+        -context: string
+        +log(message, meta?)
+        +error(message, errorOrMeta?)
+        +warn(message, meta?)
+        +debug(message, meta?)
+        +verbose(message, meta?)
+        +query(message, meta?)
+        +slowQuery(message, durationMs, meta?)
+        +fatal(message, errorOrMeta?)
+        +setContext(context) TraceableLogger
+    }
+
+    class TraceInterceptor {
+        +intercept(context, next) Observable
+    }
+
+    class TraceGrpcInterceptor {
+        +intercept(context, next) Observable
+    }
+
+    class TraceKafkaInterceptor {
+        +intercept(context, next) Observable
+    }
+
+    TraceModule --> TraceContextService : provides
+    TraceContextService --> ClsService : uses
+    TraceableCronService --> ClsService : uses
+    TraceableProcessor --> ClsService : uses
+    TraceableQueueService --> ClsService : uses
+    TraceableLogger --> ClsService : uses
+    TraceInterceptor --> TraceContextService : uses
+    TraceGrpcInterceptor --> TraceContextService : uses
+    TraceKafkaInterceptor --> TraceContextService : uses
+```
+
+### 상태 다이어그램: traceId 생명주기
+
+```mermaid
+stateDiagram-v2
+    [*] --> RequestReceived: HTTP/gRPC/Kafka 요청
+
+    state "traceId 헤더 확인" as CheckHeader {
+        RequestReceived --> HasHeader: 헤더 존재
+        RequestReceived --> NoHeader: 헤더 없음
+    }
+
+    HasHeader --> ValidateTraceId: Lenient 검증
+    NoHeader --> GenerateTraceId: UUID v4 생성
+
+    ValidateTraceId --> SetToCLS: 유효 (128자 이하)
+    ValidateTraceId --> GenerateTraceId: 무효
+
+    GenerateTraceId --> SetToCLS
+
+    SetToCLS --> Active: CLS 컨텍스트 활성화
+
+    state Active {
+        [*] --> Available
+        Available --> JobQueued: BullMQ job 생성
+        JobQueued --> PropagatedToJob: traceId 복사
+        PropagatedToJob --> Available
+    }
+
+    Active --> ResponseSent: 요청 완료
+    ResponseSent --> CLSDestroyed: CLS 컨텍스트 해제
+    CLSDestroyed --> [*]
+
+    note right of Active
+        traceId는 요청 수명 동안 유지됨
+        모든 로그에 자동 주입됨
+    end note
+```
 
 ---
 
-### User Story 5 - gRPC 서비스 추적 (Priority: P3)
+## Dependencies
 
-백엔드 개발자가 gRPC 서비스 간 호출에서 traceId를 전파하여 마이크로서비스 전체를 추적한다.
+### 필수 의존성 (peerDependencies)
 
-**Why this priority**: gRPC는 마이크로서비스 환경에서 중요하나, HTTP보다 사용 빈도가 낮다.
+| 패키지 | 버전 | 용도 |
+|--------|------|------|
+| `@nestjs/common` | ^10.0.0 \|\| ^11.0.0 | NestJS 코어 |
+| `@nestjs/core` | ^10.0.0 \|\| ^11.0.0 | NestJS 코어 |
+| `nestjs-cls` | ^4.0.0 \|\| ^5.0.0 | CLS 컨텍스트 관리 |
+| `rxjs` | ^7.0.0 | NestJS 필수 |
 
-**Independent Test**: gRPC 클라이언트 호출 시 metadata에 traceId가 포함되고, 서버에서 이를 수신하여 사용하는지 확인한다.
+### 선택적 의존성 (optional peerDependencies)
 
-**Acceptance Scenarios**:
-
-1. **Given** gRPC 요청이 trace-id metadata와 함께 도착, **When** 서비스가 요청을 처리, **Then** 전달받은 traceId로 TraceContext가 초기화된다
-2. **Given** TraceContext가 활성화된 상태, **When** gRPC 클라이언트로 다른 서비스 호출, **Then** 요청 metadata에 현재 traceId가 자동 포함된다
-3. **Given** gRPC 요청이 trace-id metadata 없이 도착, **When** 서비스가 요청을 처리, **Then** 새로운 traceId가 자동 생성된다
-
----
-
-### User Story 6 - Cron Job 추적 (Priority: P3)
-
-백엔드 개발자가 스케줄된 작업의 실행을 독립적인 trace로 추적한다.
-
-**Why this priority**: Cron은 외부 요청이 아닌 내부 스케줄이므로 traceId 전파가 아닌 생성만 필요하다.
-
-**Independent Test**: Cron 메서드 실행 시 새로운 traceId가 생성되어 로그에 포함되는지 확인한다.
-
-**Acceptance Scenarios**:
-
-1. **Given** @Cron 데코레이터가 적용된 메서드, **When** 스케줄에 따라 실행, **Then** 새로운 traceId가 자동 생성되고 실행 로그에 포함된다
-2. **Given** Cron job 실행 중 다른 서비스 호출, **When** 해당 서비스에서 로그 출력, **Then** Cron job의 traceId가 전파되어 동일한 traceId가 사용된다
+| 패키지 | 버전 | 용도 |
+|--------|------|------|
+| `@nestjs/bullmq` | ^10.0.0 \|\| ^11.0.0 | BullMQ Processor 지원 |
+| `bullmq` | ^5.0.0 | BullMQ Worker 지원 |
+| `@nestjs/schedule` | ^4.0.0 \|\| ^5.0.0 | Cron 스케줄러 지원 |
+| `nest-winston` | ^1.9.0 \|\| ^2.0.0 | Winston 통합 |
+| `winston` | ^3.0.0 | 로깅 |
+| `dayjs` | ^1.11.0 | 타임스탬프 포맷 |
 
 ---
 
-### User Story 7 - 외부 HTTP 호출 계측 (Priority: P3)
+## Integration Patterns
 
-백엔드 개발자가 외부 API 호출 시 traceId를 자동으로 전파하여 서비스 간 추적 연속성을 유지한다.
+### Pattern 1: HTTP 요청 추적 (Priority: P1)
 
-**Why this priority**: 외부 호출 계측은 분산 시스템에서 중요하나, 내부 추적이 먼저 완성되어야 한다.
+**목적**: HTTP 요청의 전체 처리 흐름을 단일 traceId로 추적
 
-**Independent Test**: HttpService로 외부 API 호출 시 요청 헤더에 X-Trace-Id가 포함되는지 확인한다.
+**구현**:
+```typescript
+// app.module.ts
+import { TraceModule } from '@m16khb/nestjs-traceable';
 
-**Acceptance Scenarios**:
+@Module({
+  imports: [
+    TraceModule.forRoot({
+      headerName: 'X-Trace-Id', // 기본값
+    }),
+  ],
+})
+export class AppModule {}
+```
 
-1. **Given** TraceContext가 활성화된 상태, **When** HttpService로 외부 API 호출, **Then** 요청 헤더에 X-Trace-Id가 자동 포함된다
-2. **Given** TraceContext가 없는 상태, **When** HttpService로 외부 API 호출, **Then** X-Trace-Id 헤더가 추가되지 않는다
+**동작**:
+1. ClsModule.middleware가 HTTP 요청을 인터셉트
+2. `X-Trace-Id` 헤더에서 traceId 추출 (없으면 UUID 생성)
+3. CLS 컨텍스트에 traceId 저장
+4. 응답 헤더에 traceId 포함
+
+**검증 시나리오**:
+- Given: HTTP 요청이 X-Trace-Id 헤더 없이 도착
+- When: 컨트롤러가 요청을 처리
+- Then: 새로운 traceId가 생성되고 응답 헤더에 포함됨
 
 ---
 
-### Edge Cases
+### Pattern 2: BullMQ Job 추적 (Priority: P2)
 
-- traceId 형식이 유효하지 않은 헤더가 전달되면 어떻게 처리하는가? → Lenient 검증 정책: 비어있지 않고 128자 이하면 허용, 그 외의 경우 새로운 traceId 생성
-- AsyncLocalStorage 컨텍스트가 손실되는 경우(예: 네이티브 addon 호출) 어떻게 대응하는가? → graceful degradation으로 traceId 없이 동작
-- 추적 시스템 자체에 오류 발생 시(초기화 실패, traceId 생성 실패 등) 어떻게 처리하는가? → Silent Continue 정책: 추적 없이 요청 처리 계속, 내부 경고 로그만 출력 (서비스 가용성 우선)
-- 매우 깊은 span 중첩(100+ depth)이 발생하면 어떻게 처리하는가? → 기본값 100, `maxSpanDepth` 옵션으로 설정 가능. 초과 시 새 span 생성 무시 + 경고 로그 출력
-- 동시에 수천 개의 요청이 처리될 때 컨텍스트 격리가 보장되는가? → AsyncLocalStorage의 격리 특성에 의존
-- span 종료 없이 컨텍스트가 해제되면 어떻게 처리하는가? → 자동 정리 메커니즘: 요청 완료 시 미종료 span을 'error' 상태로 자동 종료, 경고 로그 출력. `autoCleanupSpans` 옵션으로 비활성화 가능 (기본값: true)
+**목적**: 비동기 작업 큐의 job 처리를 원본 요청과 연결
 
-## Requirements *(mandatory)*
+**구현**:
+```typescript
+// payment.processor.ts
+import { Processor } from '@nestjs/bullmq';
+import { TraceableProcessor, TraceableJobData } from '@m16khb/nestjs-traceable';
+import { ClsService } from 'nestjs-cls';
+import { Job } from 'bullmq';
 
-### Functional Requirements
+interface PaymentJobData extends TraceableJobData {
+  orderId: string;
+  amount: number;
+}
 
-#### 핵심 기능
-- **FR-001**: 시스템 MUST 진입점(HTTP, gRPC, Cron, BullMQ)에서 traceId를 자동 생성한다
-- **FR-002**: 시스템 MUST 외부에서 전달된 traceId를 수신하여 컨텍스트에 설정한다
-- **FR-003**: 시스템 MUST CLS(Continuation Local Storage)를 사용하여 요청 컨텍스트를 전파한다
-  - 기본 구현: Node.js 내장 AsyncLocalStorage
-  - 선택 구현: nestjs-cls 라이브러리
-- **FR-003-1**: 시스템 MUST CLS 구현 방식을 선택적으로 지원해야 한다
-- **FR-004**: 시스템 MUST 중첩 호출 시 spanId를 생성하고 parent-child 관계를 추적한다
-- **FR-005**: 시스템 MUST 동일 요청 내 모든 코드에서 현재 traceId에 접근할 수 있어야 한다
+@Processor('payment')
+export class PaymentProcessor extends TraceableProcessor<PaymentJobData, void> {
+  constructor(
+    cls: ClsService,
+    private readonly paymentService: PaymentService,
+    private readonly logger: TraceableLogger,
+  ) {
+    super(cls);
+  }
 
-#### HTTP 지원
-- **FR-006**: 시스템 MUST HTTP 요청의 X-Trace-Id 헤더에서 traceId를 추출한다
-- **FR-007**: 시스템 MUST HTTP 응답에 X-Trace-Id 헤더를 포함한다
-- **FR-008**: 시스템 MUST HttpService 요청에 X-Trace-Id 헤더를 자동 주입한다
+  protected async executeJob(job: Job<PaymentJobData>): Promise<void> {
+    // traceId가 이미 CLS에 설정됨!
+    this.logger.log(`결제 처리: ${job.data.orderId}`);
+    await this.paymentService.process(job.data);
+  }
+}
+```
 
-#### gRPC 지원
-- **FR-009**: 시스템 MUST gRPC metadata의 trace-id에서 traceId를 추출한다
-- **FR-010**: 시스템 MUST gRPC 클라이언트 호출 시 metadata에 trace-id를 자동 추가한다
+**Queue 서비스에서 traceId 주입**:
+```typescript
+// payment-queue.service.ts
+import { TraceableQueueService, TraceableJobData } from '@m16khb/nestjs-traceable';
 
-#### BullMQ 지원
-- **FR-011**: 시스템 MUST job 생성 시 현재 traceId를 job 데이터에 포함한다
-- **FR-012**: 시스템 MUST job 처리 시 job 데이터의 traceId로 컨텍스트를 초기화한다
+@Injectable()
+export class PaymentQueueService extends TraceableQueueService {
+  constructor(
+    cls: ClsService,
+    @InjectQueue('payment') queue: Queue,
+  ) {
+    super(cls, queue);
+  }
 
-#### Cron 지원
-- **FR-013**: 시스템 MUST Cron 메서드 실행 시 새로운 traceId를 자동 생성한다
+  async addPaymentJob(orderId: string, amount: number): Promise<void> {
+    // traceId가 자동으로 job.data에 포함됨
+    await this.addJob('process', { orderId, amount });
+  }
+}
+```
 
-#### 로깅 통합
-- **FR-014**: 시스템 MUST 로그 출력 시 현재 traceId/spanId를 자동 주입하는 기능을 제공한다
-- **FR-015**: 시스템 MUST 커스텀 로거 어댑터를 지원한다 (Winston, Pino, Bunyan 등)
-- **FR-016**: 시스템 MUST 구조화된 로그 포맷(JSON)을 지원한다
+**검증 시나리오**:
+- Given: TraceContext가 활성화된 상태에서 job 생성
+- When: job을 큐에 추가하고 Processor가 처리
+- Then: job의 traceId가 Processor의 CLS 컨텍스트로 복원됨
 
-#### API 인터페이스
-- **FR-017**: 시스템 MUST 데코레이터 기반 API를 제공한다 (@Traceable, @Trace)
-- **FR-018**: 시스템 MUST 프로그래매틱 API를 제공한다 (TraceContext.getCurrentTraceId(), TraceContext.startSpan())
-- **FR-019**: 시스템 MUST NestJS 모듈 형태로 제공되어 forRoot/forRootAsync 패턴을 지원한다
+---
 
-#### 설정
-- **FR-020**: 시스템 MUST traceId 헤더명을 설정 가능해야 한다 (기본값: X-Trace-Id)
-- **FR-021**: 시스템 MUST traceId 생성 전략을 커스터마이징할 수 있어야 한다
+### Pattern 3: Cron Job 추적 (Priority: P2)
 
-### Key Entities
+**목적**: 스케줄된 작업의 실행을 독립적인 trace로 추적
 
-- **TraceContext**: 현재 추적 상태를 나타내는 컨텍스트. traceId, spanId, parentSpanId 포함
-- **Span**: 개별 작업 단위. 시작/종료 시간, 작업명, 상위 span 참조 포함
-- **TraceId**: 요청 전체를 식별하는 고유 식별자. 서비스 간 전파됨
-- **SpanId**: 개별 작업을 식별하는 고유 식별자. traceId 내에서 유일
-- **CLS Adapter**: Continuation Local Storage 구현을 추상화하는 인터페이스
-  - AsyncLocalStorageAdapter: Node.js 내장 API 사용
-  - NestjsClsAdapter: nestjs-cls 라이브러리 사용
+**구현**:
+```typescript
+// report.cron.ts
+import { Injectable } from '@nestjs/common';
+import { Cron } from '@nestjs/schedule';
+import { TraceableCronService, TraceableLogger } from '@m16khb/nestjs-traceable';
+import { ClsService } from 'nestjs-cls';
 
-## Success Criteria *(mandatory)*
+@Injectable()
+export class ReportCronService extends TraceableCronService {
+  constructor(
+    cls: ClsService,
+    private readonly reportService: ReportService,
+    private readonly logger: TraceableLogger,
+  ) {
+    super(cls);
+  }
 
-### Measurable Outcomes
+  @Cron('0 0 * * *', { name: 'daily-report', timeZone: 'Asia/Seoul' })
+  async generateDailyReport(): Promise<void> {
+    await this.runWithTrace(async () => {
+      this.logger.log('[크론] 일일 리포트 생성 시작');
+      await this.reportService.generate();
+    });
+  }
+}
+```
 
-- **SC-001**: 단일 요청의 모든 로그에서 동일한 traceId를 확인할 수 있다 (100% 일관성)
-- **SC-002**: 서비스 간 호출(HTTP, gRPC) 시 traceId 연속성이 유지된다 (100% 전파율)
-- **SC-003**: traceId 처리로 인한 성능 오버헤드가 요청당 1ms 미만이다
-- **SC-004**: 동시 요청 1000개 처리 시 컨텍스트 격리가 100% 보장된다
-- **SC-005**: 개발자가 5분 이내에 기본 설정을 완료하고 첫 추적 로그를 확인할 수 있다
-- **SC-006**: 라이브러리가 NestJS 외 추가 런타임 의존성 없이 동작한다 (Zero external dependency)
-  - AsyncLocalStorage 구현: Zero dependency
-  - nestjs-cls 구현: 선택적 의존성 (peerDependency)
-- **SC-007**: Core 번들 사이즈가 5KB (gzipped) 미만이다
-- **SC-008**: Core + NestJS adapter 번들 사이즈가 10KB (gzipped) 미만이다
+**검증 시나리오**:
+- Given: @Cron 데코레이터가 적용된 메서드
+- When: 스케줄에 따라 실행
+- Then: 새로운 traceId가 생성되고 실행 로그에 포함됨
+
+---
+
+### Pattern 4: gRPC 서비스 추적 (Priority: P3)
+
+**목적**: gRPC 마이크로서비스 간 traceId 전파
+
+**구현**:
+```typescript
+// app.module.ts
+import { APP_INTERCEPTOR } from '@nestjs/core';
+import { TraceModule, TraceGrpcInterceptor } from '@m16khb/nestjs-traceable';
+
+@Module({
+  imports: [TraceModule.forRoot()],
+  providers: [
+    { provide: APP_INTERCEPTOR, useClass: TraceGrpcInterceptor },
+  ],
+})
+export class AppModule {}
+```
+
+**클라이언트에서 traceId 전달**:
+```typescript
+const metadata = new Metadata();
+metadata.set('x-trace-id', currentTraceId);
+client.myMethod(request, metadata);
+```
+
+**검증 시나리오**:
+- Given: gRPC 요청이 x-trace-id metadata와 함께 도착
+- When: 서비스가 요청을 처리
+- Then: 전달받은 traceId로 CLS 컨텍스트가 초기화됨
+
+---
+
+### Pattern 5: Kafka 이벤트 추적 (Priority: P3)
+
+**목적**: Kafka 메시지 처리 시 traceId 전파
+
+**구현**:
+```typescript
+// app.module.ts
+import { APP_INTERCEPTOR } from '@nestjs/core';
+import { TraceModule, TraceKafkaInterceptor } from '@m16khb/nestjs-traceable';
+
+@Module({
+  imports: [TraceModule.forRoot()],
+  providers: [
+    { provide: APP_INTERCEPTOR, useClass: TraceKafkaInterceptor },
+  ],
+})
+export class AppModule {}
+```
+
+**Producer에서 traceId 전달**:
+```typescript
+import { createKafkaTraceHeaders } from '@m16khb/nestjs-traceable';
+
+await this.kafkaClient.emit('topic', {
+  key: 'key',
+  value: JSON.stringify(data),
+  headers: createKafkaTraceHeaders(traceId),
+});
+```
+
+---
+
+## Logging
+
+### TraceableLogger
+
+Winston 기반 NestJS 호환 로거. CLS 컨텍스트에서 traceId를 자동으로 읽어 모든 로그에 주입한다.
+
+**모듈 설정**:
+```typescript
+import { TraceableLoggerModule } from '@m16khb/nestjs-traceable';
+
+@Module({
+  imports: [
+    TraceModule.forRoot(),
+    TraceableLoggerModule.forRoot({
+      level: 'info',        // error | warn | info | query | debug | verbose
+      isLocal: true,        // true: Pretty 출력, false: JSON 출력
+      appName: 'MyApp',     // 로그 프리픽스 (기본: 'Nest')
+      traceIdLength: 8,     // traceId 표시 길이 (0: 전체)
+    }),
+  ],
+})
+export class AppModule {}
+```
+
+**ConfigService와 함께 사용**:
+```typescript
+TraceableLoggerModule.forRootAsync({
+  imports: [ConfigModule],
+  inject: [ConfigService],
+  useFactory: (config: ConfigService) => ({
+    level: config.get('LOG_LEVEL', 'info'),
+    isLocal: config.get('NODE_ENV') !== 'production',
+  }),
+})
+```
+
+**서비스에서 사용**:
+```typescript
+@Injectable()
+export class PaymentService {
+  private readonly logger: TraceableLogger;
+
+  constructor(logger: TraceableLogger) {
+    this.logger = logger.setContext('PaymentService');
+  }
+
+  async process(orderId: string): Promise<void> {
+    this.logger.log('결제 처리 시작', { orderId });
+    // [MyApp] 12345 - 12/06/2025, 12:30:45 AM LOG [PaymentService] [abc12345] 결제 처리 시작
+
+    try {
+      await this.doPayment();
+      this.logger.log('결제 완료', { orderId, amount: 10000 });
+    } catch (error) {
+      this.logger.error('결제 실패', error);
+    }
+  }
+}
+```
+
+**로그 레벨 및 메서드**:
+
+| 메서드 | 레벨 | 용도 |
+|--------|------|------|
+| `log(message, meta?)` | info | 일반 정보 로그 |
+| `error(message, errorOrMeta?)` | error | 에러 로그 (Error 객체 자동 추출) |
+| `warn(message, meta?)` | warn | 경고 로그 |
+| `debug(message, meta?)` | debug | 디버그 로그 |
+| `verbose(message, meta?)` | verbose | 상세 로그 |
+| `query(message, meta?)` | query | SQL 쿼리 로그 (TypeORM용) |
+| `slowQuery(message, durationMs, meta?)` | warn | 느린 쿼리 경고 |
+| `fatal(message, errorOrMeta?)` | error | 치명적 오류 (fatal 플래그) |
+
+**출력 포맷**:
+
+로컬 환경 (Pretty):
+```
+[MyApp] 12345 - 12/06/2025, 12:30:45 AM LOG     [PaymentService] [abc12345] 결제 처리 시작
+```
+
+운영 환경 (JSON):
+```json
+{"timestamp":"2025-12-06T00:30:45.123+0900","level":"info","context":"PaymentService","traceId":"abc12345-def6-7890","message":"결제 처리 시작"}
+```
+
+---
+
+## Configuration
+
+### TraceModuleOptions
+
+| 옵션 | 타입 | 기본값 | 설명 |
+|------|------|--------|------|
+| `headerName` | string | `'X-Trace-Id'` | traceId 헤더명 |
+
+### TraceableLoggerModuleOptions
+
+| 옵션 | 타입 | 기본값 | 설명 |
+|------|------|--------|------|
+| `level` | LogLevel | `'info'` | 최소 로그 레벨 |
+| `isLocal` | boolean | `NODE_ENV !== 'production'` | Pretty/JSON 출력 전환 |
+| `appName` | string | `'Nest'` | 로그 프리픽스 |
+| `traceIdLength` | number | `8` | traceId 표시 길이 (0: 전체) |
+| `timestampFormat` | () => string | dayjs 기반 | 커스텀 타임스탬프 포맷 |
+
+---
+
+## API Reference
+
+### TraceContextService
+
+traceId 접근을 위한 서비스 클래스.
+
+```typescript
+@Injectable()
+export class TraceContextService {
+  // 현재 traceId 조회
+  getTraceId(): string | undefined;
+
+  // traceId 설정
+  setTraceId(traceId: string): void;
+
+  // 새로운 traceId 생성 및 설정
+  generateTraceId(): string;
+
+  // 추적 컨텍스트 존재 여부
+  hasContext(): boolean;
+
+  // CLS 활성화 여부
+  isActive(): boolean;
+
+  // 새 컨텍스트에서 함수 실행
+  run<T>(fn: () => T, traceId?: string): T;
+  runAsync<T>(fn: () => Promise<T>, traceId?: string): Promise<T>;
+
+  // ClsService 직접 접근
+  getClsService(): ClsService;
+}
+```
+
+### TraceableCronService
+
+Cron 서비스를 위한 추상 클래스.
+
+```typescript
+abstract class TraceableCronService {
+  constructor(cls: ClsService);
+
+  // 새 CLS 컨텍스트에서 함수 실행
+  protected runWithTrace<T>(fn: () => Promise<T>, traceId?: string): Promise<T>;
+
+  // 현재 traceId 조회
+  protected getTraceId(): string | undefined;
+}
+```
+
+### TraceableProcessor
+
+BullMQ Processor를 위한 추상 클래스.
+
+```typescript
+abstract class TraceableProcessor<TData extends TraceableJobData, TResult = void> extends WorkerHost {
+  constructor(cls: ClsService);
+
+  // BullMQ process() 자동 구현 - CLS 컨텍스트 설정 후 executeJob 호출
+  async process(job: Job<TData>): Promise<TResult>;
+
+  // 서브클래스에서 구현할 실제 작업 로직
+  protected abstract executeJob(job: Job<TData>): Promise<TResult>;
+
+  // 현재 traceId 조회
+  protected getTraceId(): string | undefined;
+}
+```
+
+---
+
+## Edge Cases
+
+| 상황 | 처리 방식 |
+|------|-----------|
+| traceId 헤더가 없는 경우 | UUID v4로 새 traceId 생성 |
+| traceId 형식이 유효하지 않은 경우 | 그대로 사용 (Lenient 정책) |
+| CLS 컨텍스트가 비활성화된 경우 | `undefined` 반환, 정상 동작 계속 |
+| Winston이 주입되지 않은 경우 | console 기반 fallback 로깅 |
+| BullMQ job에 traceId가 없는 경우 | 새 traceId 생성 |
+| 추적 시스템 오류 발생 | Silent Continue - 추적 없이 요청 처리 계속 |
+
+---
+
+## Success Criteria
+
+### 기능 검증
+
+- [x] 단일 요청의 모든 로그에서 동일한 traceId 확인 가능
+- [x] HTTP → BullMQ → Processor 간 traceId 연속성 유지
+- [x] Cron job에서 독립적인 traceId 생성
+- [x] gRPC/Kafka 인터셉터를 통한 traceId 전파
+- [x] Winston 로거에서 traceId 자동 주입
+
+### 품질 지표
+
+| 지표 | 목표 | 현재 |
+|------|------|------|
+| 테스트 커버리지 | 80%+ | 185개 테스트 통과 |
+| 빌드 성공 | ✅ | ✅ |
+| 타입 안전성 | 100% | TypeScript strict mode |
+| 설정 완료 시간 | 5분 이내 | ✅ |
+
+### 번들 사이즈
+
+| 포맷 | 원본 크기 | gzip 압축 |
+|------|----------|----------|
+| ESM | 31.27 KB | 7.2 KB |
+| CJS | 32.82 KB | 7.5 KB |
+| TypeScript 정의 | 20.41 KB | - |
+
+*peer dependencies (nestjs-cls, @nestjs/common 등)는 번들에 포함되지 않음*
+
+### 성능 요구사항
+
+- traceId 처리로 인한 성능 오버헤드: 요청당 1ms 미만
+- 동시 요청 1000개 처리 시 컨텍스트 격리 보장
+
+---
 
 ## Assumptions
 
-- Node.js 20+ 환경에서 AsyncLocalStorage가 안정적으로 동작한다고 가정
-- 사용자가 NestJS 10 또는 11 버전을 사용한다고 가정
-- traceId 형식은 UUID v4를 기본값으로 사용 (커스터마이징 가능), 외부 traceId는 Lenient 검증(비어있지 않은 128자 이하 문자열 허용)
-- HTTP 헤더명은 X-Trace-Id를 표준으로 사용 (OpenTelemetry traceparent 형식은 별도 확장으로 고려)
-- 로거 어댑터는 가장 널리 사용되는 Winston, Pino, Bunyan을 우선 지원
-- gRPC metadata key는 trace-id를 사용 (OpenTelemetry 호환)
-- BullMQ job data에서 traceId를 저장하는 키는 `_traceId`를 사용 (충돌 방지)
+- Node.js 20+ 환경에서 AsyncLocalStorage가 안정적으로 동작
+- NestJS 10 또는 11 버전 사용
+- traceId 형식: UUID v4 기본값, 외부 traceId는 Lenient 검증 (128자 이하)
+- HTTP 헤더명: `X-Trace-Id` (설정 가능)
+- gRPC metadata key: `x-trace-id`
+- Kafka header key: `x-trace-id`
+- BullMQ job data key: `traceId`
+
+---
 
 ## Constraints
 
-- Zero dependency: NestJS core packages(@nestjs/common, @nestjs/core) 외 추가 의존성 없음
-  - 단, nestjs-cls는 선택적 peerDependency로 허용
-- TypeScript 5.7+ (ES2022) 타겟
-- NestJS 10.x / 11.x 호환성 유지
-- CLS 구현 방식은 런타임에 선택 가능해야 함
-- Node.js 20+ (AsyncLocalStorage 네이티브 지원)
-- No Sampling: 모든 요청 100% 추적 (샘플링 기능 미지원, 단순성 우선)
+- **의존성**: nestjs-cls 필수, 나머지는 기능별 선택적
+- **TypeScript**: 5.7+ (ES2022) strict mode
+- **NestJS**: 10.x / 11.x 호환
+- **Node.js**: 20+
+- **spanId**: OpenTelemetry에 위임 (본 라이브러리에서 미관리)
+- **샘플링**: 미지원 (모든 요청 100% 추적)
+
+---
+
+## Changelog
+
+### 2025-12-06
+- 구현 기반으로 spec 전면 재작성
+- spanId 관리 제거 (OpenTelemetry 위임)
+- Zero dependency → Minimal dependency 정책 변경
+- 추상 클래스 패턴 문서화
+- Winston 기반 로거 상세 문서화
+
+### 2025-12-05
+- 초기 spec 작성
+- CLS 통합 지원 추가

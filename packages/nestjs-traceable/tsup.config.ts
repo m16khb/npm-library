@@ -1,14 +1,14 @@
 import { defineConfig } from 'tsup';
-import { glob } from 'glob';
 
 export default defineConfig({
-  entry: glob.sync('src/**/*.ts'),
+  entry: ['src/index.ts'],
   format: ['esm', 'cjs'],
   dts: true,
   clean: true,
   sourcemap: true,
   splitting: false,
   minify: false,
+  treeshake: true,
   target: 'es2022',
   platform: 'node',
   external: [
@@ -17,14 +17,21 @@ export default defineConfig({
     '@nestjs/core',
     '@nestjs/platform-express',
     '@nestjs/platform-fastify',
+    '@nestjs/bullmq',
+    '@nestjs/schedule',
     // RxJS peer dependency
     'rxjs',
+    // CLS dependency
+    'nestjs-cls',
+    // Optional dependencies
+    'bullmq',
+    'nest-winston',
+    'winston',
+    'dayjs',
     // Node.js builtins
-    'node:async_hooks',
-    'node:crypto',
-    'node:perf_hooks',
+    'crypto',
   ],
-  bundle: false,
+  bundle: true,
   onSuccess: async () => {
     console.log('✅ Build completed');
   },

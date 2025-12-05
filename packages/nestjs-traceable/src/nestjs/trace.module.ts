@@ -2,31 +2,39 @@ import {
   DynamicModule,
   Global,
   Module,
-  Provider,
 } from '@nestjs/common';
+import { ClsModule } from 'nestjs-cls';
+import { randomUUID } from 'crypto';
 import {
-  DEFAULT_MAX_SPAN_DEPTH,
-  DEFAULT_TRACE_ENABLED,
-  DEFAULT_AUTO_CLEANUP,
-  DEFAULT_WARN_UNFINISHED,
   DEFAULT_TRACE_HEADER,
   TRACE_OPTIONS,
-  TRACE_CONTEXT_MANAGER,
 } from './constants';
 import {
   TraceModuleOptions,
   TraceModuleAsyncOptions,
-  ClsImplementation,
 } from './interfaces';
-import { TraceContextManager } from '../core/context';
-import { ClsTraceContextManager } from '../core/context/trace-context-manager.cls';
-import { DefaultTraceIdGenerator } from '../core/generators/trace-id.generator';
-import { DefaultSpanIdGenerator } from '../core/generators/span-id.generator';
-import { AsyncLocalStorageClsAdapter, NestjsClsAdapter } from '../adapters';
+import { TraceContextService, TRACE_ID_KEY } from './services/trace-context.service';
 
 /**
  * NestJS 추적 모듈
- * 애플리케이션 전체에 추적 기능을 제공한다.
+ *
+ * nestjs-cls를 사용하여 traceId 추적 기능을 제공한다.
+ * spanId 관리는 otel에 위임.
+ *
+ * @example
+ * ```typescript
+ * // app.module.ts
+ * import { TraceModule } from '@m16khb/nestjs-traceable';
+ *
+ * @Module({
+ *   imports: [
+ *     TraceModule.forRoot({
+ *       headerName: 'X-Trace-Id',
+ *     }),
+ *   ],
+ * })
+ * export class AppModule {}
+ * ```
  */
 @Global()
 @Module({})
@@ -35,204 +43,101 @@ export class TraceModule {
    * 동기 방식으로 모듈을 설정한다.
    */
   static forRoot(options?: TraceModuleOptions): DynamicModule {
-    const traceOptionsProvider = this.createOptionsProvider(options);
-    const contextManagerProvider = this.createContextManagerProvider(options);
-    const imports = this.createImports(options);
+    const headerName = options?.headerName ?? DEFAULT_TRACE_HEADER;
 
     return {
       module: TraceModule,
-      imports,
+      imports: [
+        ClsModule.forRoot({
+          global: true,
+          middleware: {
+            mount: true,
+            generateId: true,
+            idGenerator: (req) => {
+              // 헤더에서 traceId 추출, 없으면 새로 생성
+              const headerKey = headerName.toLowerCase();
+              return (req.headers[headerKey] as string) ?? randomUUID();
+            },
+            setup: (cls, req) => {
+              // traceId를 CLS에 설정
+              cls.set(TRACE_ID_KEY, cls.getId());
+
+              // 응답 헤더에 traceId 설정
+              const res = req.res;
+              if (res && !res.headersSent) {
+                res.setHeader(headerName, cls.getId() ?? '');
+              }
+            },
+          },
+        }),
+      ],
       providers: [
-        traceOptionsProvider,
-        contextManagerProvider,
+        {
+          provide: TRACE_OPTIONS,
+          useValue: {
+            headerName,
+            ...options,
+          },
+        },
+        TraceContextService,
       ],
       exports: [
         TRACE_OPTIONS,
-        TRACE_CONTEXT_MANAGER,
+        TraceContextService,
+        ClsModule,
       ],
     };
   }
 
   /**
    * 비동기 방식으로 모듈을 설정한다.
+   * 이미 ClsModule이 설정된 경우 사용.
    */
   static forRootAsync(asyncOptions: TraceModuleAsyncOptions): DynamicModule {
-    const traceOptionsProvider = this.createAsyncOptionsProvider(asyncOptions);
-    const contextManagerProvider = this.createAsyncContextManagerProvider();
-    const imports = this.createImports(asyncOptions);
-
     return {
       module: TraceModule,
-      imports: [...(asyncOptions.imports || []), ...imports],
+      imports: asyncOptions.imports || [],
       providers: [
-        traceOptionsProvider,
-        contextManagerProvider,
+        {
+          provide: TRACE_OPTIONS,
+          useFactory: async (...args: unknown[]) => {
+            const config = await asyncOptions.useFactory(...args);
+            return {
+              headerName: DEFAULT_TRACE_HEADER,
+              ...config,
+            };
+          },
+          inject: asyncOptions.inject || [],
+        },
+        TraceContextService,
       ],
       exports: [
         TRACE_OPTIONS,
-        TRACE_CONTEXT_MANAGER,
+        TraceContextService,
       ],
     };
   }
 
   /**
-   * CLS 구현에 따라 필요한 imports를 생성한다.
+   * 이미 ClsModule이 설정된 경우 사용.
+   * ClsModule을 중복 import하지 않고 TraceContextService만 등록한다.
    */
-  private static createImports(options?: TraceModuleOptions): any[] {
-    const clsImplementation = options?.clsImplementation ?? 'async-local-storage';
-
-    if (clsImplementation === 'nestjs-cls') {
-      try {
-        // 동적으로 import
-        const ClsModule = require('nestjs-cls').ClsModule;
-        return [
-          ClsModule.forRoot(options?.clsOptions ?? {
-            middleware: { mount: true },
-          }),
-        ];
-      } catch (error) {
-        throw new Error(
-          'nestjs-cls is not installed. Please install it: npm install nestjs-cls',
-        );
-      }
-    }
-
-    return [];
-  }
-
-  /**
-   * 옵션 프로바이더를 생성한다.
-   */
-  private static createOptionsProvider(options?: TraceModuleOptions): Provider {
+  static register(): DynamicModule {
     return {
-      provide: TRACE_OPTIONS,
-      useValue: {
-        headerName: DEFAULT_TRACE_HEADER,
-        maxSpanDepth: DEFAULT_MAX_SPAN_DEPTH,
-        enabled: DEFAULT_TRACE_ENABLED,
-        autoCleanupSpans: DEFAULT_AUTO_CLEANUP,
-        warnOnUnfinishedSpans: DEFAULT_WARN_UNFINISHED,
-        ...options,
-      },
-    };
-  }
-
-  /**
-   * 비동기 옵션 프로바이더를 생성한다.
-   */
-  private static createAsyncOptionsProvider(
-    asyncOptions: TraceModuleAsyncOptions,
-  ): Provider {
-    return {
-      provide: TRACE_OPTIONS,
-      useFactory: async (...args: any[]) => {
-        const config = await asyncOptions.useFactory(...args);
-        return {
-          headerName: DEFAULT_TRACE_HEADER,
-          maxSpanDepth: DEFAULT_MAX_SPAN_DEPTH,
-          enabled: DEFAULT_TRACE_ENABLED,
-          autoCleanupSpans: DEFAULT_AUTO_CLEANUP,
-          warnOnUnfinishedSpans: DEFAULT_WARN_UNFINISHED,
-          ...config,
-        };
-      },
-      inject: asyncOptions.inject || [],
-    };
-  }
-
-  /**
-   * 컨텍스트 관리자 프로바이더를 생성한다.
-   */
-  private static createContextManagerProvider(
-    options?: TraceModuleOptions,
-  ): Provider {
-    return {
-      provide: TRACE_CONTEXT_MANAGER,
-      useFactory: (traceOptions: TraceModuleOptions) => {
-        const clsImplementation = traceOptions?.clsImplementation ?? 'async-local-storage';
-        const traceIdGenerator = options?.traceIdGenerator ??
-          traceOptions?.traceIdGenerator ??
-          new DefaultTraceIdGenerator();
-
-        const spanIdGenerator = options?.spanIdGenerator ??
-          traceOptions?.spanIdGenerator ??
-          new DefaultSpanIdGenerator();
-
-        if (clsImplementation === 'nestjs-cls') {
-          // nestjs-cls 사용
-          try {
-            const { ClsService } = require('nestjs-cls');
-            const clsAdapter = new NestjsClsAdapter(new ClsService());
-            return new ClsTraceContextManager(
-              clsAdapter,
-              traceIdGenerator,
-              spanIdGenerator,
-            );
-          } catch (error) {
-            throw new Error(
-              'nestjs-cls is not installed. Please install it: npm install nestjs-cls',
-            );
-          }
-        } else {
-          // 기본 AsyncLocalStorage 사용
-          const { AsyncLocalStorageManager } = require('../core/context');
-          const storage = new AsyncLocalStorageManager();
-          const { AsyncLocalStorageClsAdapter } = require('../adapters');
-          const clsAdapter = new AsyncLocalStorageClsAdapter(storage);
-          return new ClsTraceContextManager(
-            clsAdapter,
-            traceIdGenerator,
-            spanIdGenerator,
-          );
-        }
-      },
-      inject: [TRACE_OPTIONS],
-    };
-  }
-
-  /**
-   * 비동기 컨텍스트 관리자 프로바이더를 생성한다.
-   */
-  private static createAsyncContextManagerProvider(): Provider {
-    return {
-      provide: TRACE_CONTEXT_MANAGER,
-      useFactory: (traceOptions: TraceModuleOptions) => {
-        const clsImplementation = traceOptions?.clsImplementation ?? 'async-local-storage';
-        const traceIdGenerator = traceOptions?.traceIdGenerator ??
-          new DefaultTraceIdGenerator();
-
-        const spanIdGenerator = traceOptions?.spanIdGenerator ??
-          new DefaultSpanIdGenerator();
-
-        if (clsImplementation === 'nestjs-cls') {
-          // nestjs-cls 사용
-          try {
-            const { ClsService } = require('nestjs-cls');
-            const clsAdapter = new NestjsClsAdapter(new ClsService());
-            return new ClsTraceContextManager(
-              clsAdapter,
-              traceIdGenerator,
-              spanIdGenerator,
-            );
-          } catch (error) {
-            throw new Error(
-              'nestjs-cls is not installed. Please install it: npm install nestjs-cls',
-            );
-          }
-        } else {
-          // 기본 AsyncLocalStorage 사용
-          const { AsyncLocalStorageManager } = require('../core/context');
-          const storage = new AsyncLocalStorageManager();
-          const { AsyncLocalStorageClsAdapter } = require('../adapters');
-          const clsAdapter = new AsyncLocalStorageClsAdapter(storage);
-          return new ClsTraceContextManager(
-            clsAdapter,
-            traceIdGenerator,
-            spanIdGenerator,
-          );
-        }
-      },
-      inject: [TRACE_OPTIONS],
+      module: TraceModule,
+      providers: [
+        {
+          provide: TRACE_OPTIONS,
+          useValue: {
+            headerName: DEFAULT_TRACE_HEADER,
+          },
+        },
+        TraceContextService,
+      ],
+      exports: [
+        TRACE_OPTIONS,
+        TraceContextService,
+      ],
     };
   }
 }

@@ -1,60 +1,65 @@
-import { Injectable, Logger } from '@nestjs/common';
-import type {
-  ITraceContext,
-  ITraceContextManager,
-  ILoggerAdapter,
-} from '../../core/interfaces';
+import { Injectable } from '@nestjs/common';
+import { ClsService } from 'nestjs-cls';
+import { randomUUID } from 'crypto';
+
+/**
+ * traceId 저장 키
+ */
+export const TRACE_ID_KEY = 'traceId';
 
 /**
  * 추적 컨텍스트 서비스
- * NestJS 애플리케이션에서 추적 컨텍스트를 관리한다.
+ *
+ * nestjs-cls의 ClsService를 사용하여 traceId를 관리한다.
+ * spanId 관리는 otel에 위임.
+ *
+ * @example
+ * ```typescript
+ * @Injectable()
+ * class MyService {
+ *   constructor(private readonly traceContext: TraceContextService) {}
+ *
+ *   doSomething() {
+ *     const traceId = this.traceContext.getTraceId();
+ *     // traceId를 사용하여 로깅 또는 외부 시스템 연동
+ *   }
+ * }
+ * ```
  */
 @Injectable()
 export class TraceContextService {
-  private readonly logger: Logger;
-
-  constructor(
-    private readonly contextManager: ITraceContextManager,
-    logger?: ILoggerAdapter,
-  ) {
-    // NestJS Logger를 기본으로 사용
-    this.logger = (logger as any) ?? new Logger(TraceContextService.name);
-  }
+  constructor(private readonly cls: ClsService) {}
 
   /**
    * 현재 trace ID를 가져온다.
    */
   getTraceId(): string | undefined {
     try {
-      return this.contextManager.getCurrentTraceId();
-    } catch (error) {
-      this.error('Error getting trace ID', error as Error);
+      if (!this.cls.isActive()) {
+        return undefined;
+      }
+      return this.cls.get<string>(TRACE_ID_KEY);
+    } catch {
       return undefined;
     }
   }
 
   /**
-   * 현재 span ID를 가져온다.
+   * trace ID를 설정한다.
    */
-  getSpanId(): string | undefined {
-    try {
-      return this.contextManager.getCurrentSpanId();
-    } catch (error) {
-      this.error('Error getting span ID', error as Error);
-      return undefined;
+  setTraceId(traceId: string): void {
+    if (this.cls.isActive()) {
+      this.cls.set(TRACE_ID_KEY, traceId);
     }
   }
 
   /**
-   * 현재 추적 컨텍스트를 가져온다.
+   * 새로운 trace ID를 생성하고 설정한다.
    */
-  getContext(): ITraceContext | undefined {
-    try {
-      return this.contextManager.getCurrent();
-    } catch (error) {
-      this.error('Error getting trace context', error as Error);
-      return undefined;
-    }
+  generateTraceId(): string {
+    const traceId = randomUUID();
+    this.setTraceId(traceId);
+    return traceId;
   }
 
   /**
@@ -62,66 +67,39 @@ export class TraceContextService {
    */
   hasContext(): boolean {
     try {
-      return this.contextManager.hasContext();
-    } catch (error) {
-      this.error('Error checking context', error as Error);
+      return this.cls.isActive() && this.getTraceId() !== undefined;
+    } catch {
       return false;
     }
   }
 
   /**
-   * 새로운 자식 컨텍스트를 생성한다.
+   * CLS가 활성화되어 있는지 확인한다.
    */
-  createChild(customSpanId?: string): ITraceContext | undefined {
-    try {
-      return this.contextManager.createChild(customSpanId);
-    } catch (error) {
-      this.error('Error creating child context', error as Error);
-      return undefined;
-    }
+  isActive(): boolean {
+    return this.cls.isActive();
   }
 
   /**
-   * 주어진 컨텍스트에서 함수를 실행한다.
+   * 새로운 컨텍스트에서 함수를 실행한다.
+   * traceId가 제공되지 않으면 새로 생성한다.
    */
-  runWithContext<T>(context: ITraceContext, fn: () => T): T {
-    try {
-      return this.contextManager.run(context, fn);
-    } catch (error) {
-      this.error('Error running with context', error as Error);
-      throw error;
-    }
+  run<T>(fn: () => T, traceId?: string): T {
+    return this.cls.run(() => {
+      this.setTraceId(traceId ?? randomUUID());
+      return fn();
+    });
   }
 
   /**
-   * 주어진 컨텍스트에서 비동기 함수를 실행한다.
+   * 새로운 컨텍스트에서 비동기 함수를 실행한다.
+   * traceId가 제공되지 않으면 새로 생성한다.
    */
-  async runWithContextAsync<T>(
-    context: ITraceContext,
-    fn: () => Promise<T>,
-  ): Promise<T> {
-    try {
-      return await this.contextManager.runAsync(context, fn);
-    } catch (error) {
-      this.error('Error running with context', error as Error);
-      throw error;
-    }
-  }
-
-  /**
-   * 새로운 컨텍스트를 생성한다.
-   */
-  createContext(
-    traceId: string,
-    spanId?: string,
-    parentSpanId?: string,
-  ): ITraceContext {
-    try {
-      return this.contextManager.create(traceId, spanId, parentSpanId);
-    } catch (error) {
-      this.error('Error creating context', error as Error);
-      throw error;
-    }
+  async runAsync<T>(fn: () => Promise<T>, traceId?: string): Promise<T> {
+    return this.cls.run(async () => {
+      this.setTraceId(traceId ?? randomUUID());
+      return fn();
+    });
   }
 
   /**
@@ -129,88 +107,17 @@ export class TraceContextService {
    */
   isSameTrace(traceId: string): boolean {
     try {
-      return this.contextManager.isSameTrace(traceId);
-    } catch (error) {
-      this.error('Error checking trace ID', error as Error);
+      return this.getTraceId() === traceId;
+    } catch {
       return false;
     }
   }
 
   /**
-   * 현재 컨텍스트 정보를 로그한다.
+   * ClsService 인스턴스를 가져온다.
+   * 직접 CLS 기능을 사용해야 할 때 사용.
    */
-  logContext(): void {
-    const context = this.getContext();
-    if (context) {
-      this.log(
-        `Trace Context: traceId=${context.traceId}, spanId=${context.spanId}, parentSpanId=${context.parentSpanId || 'none'}`,
-        context,
-      );
-    } else {
-      this.warn('No trace context available');
-    }
-  }
-
-  /**
-   * 컨텍스트와 함께 로그를 기록한다.
-   */
-  log(message: string, context?: ITraceContext): void {
-    const traceInfo = context ?? this.getContext();
-    if (traceInfo) {
-      this.logger.log(`${message} [traceId=${traceInfo.traceId}, spanId=${traceInfo.spanId}]`);
-    } else {
-      this.logger.log(message);
-    }
-  }
-
-  /**
-   * 컨텍스트와 함께 에러 로그를 기록한다.
-   */
-  error(message: string, error?: Error, context?: ITraceContext): void {
-    const traceInfo = context ?? this.getContext();
-    if (traceInfo) {
-      this.logger.error(
-        `${message} [traceId=${traceInfo.traceId}, spanId=${traceInfo.spanId}]`,
-        error,
-      );
-    } else {
-      this.logger.error(message, error);
-    }
-  }
-
-  /**
-   * 컨텍스트와 함께 경고 로그를 기록한다.
-   */
-  warn(message: string, context?: ITraceContext): void {
-    const traceInfo = context ?? this.getContext();
-    if (traceInfo) {
-      this.logger.warn(`${message} [traceId=${traceInfo.traceId}, spanId=${traceInfo.spanId}]`);
-    } else {
-      this.logger.warn(message);
-    }
-  }
-
-  /**
-   * 컨텍스트와 함께 디버그 로그를 기록한다.
-   */
-  debug(message: string, context?: ITraceContext): void {
-    const traceInfo = context ?? this.getContext();
-    if (traceInfo) {
-      this.logger.debug(`${message} [traceId=${traceInfo.traceId}, spanId=${traceInfo.spanId}]`);
-    } else {
-      this.logger.debug(message);
-    }
-  }
-
-  /**
-   * 컨텍스트와 함께 상세 로그를 기록한다.
-   */
-  verbose(message: string, context?: ITraceContext): void {
-    const traceInfo = context ?? this.getContext();
-    if (traceInfo) {
-      this.logger.verbose(`${message} [traceId=${traceInfo.traceId}, spanId=${traceInfo.spanId}]`);
-    } else {
-      this.logger.verbose(message);
-    }
+  getClsService(): ClsService {
+    return this.cls;
   }
 }

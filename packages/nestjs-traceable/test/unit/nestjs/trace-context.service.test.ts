@@ -1,220 +1,167 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { TraceContextService } from '../../../src/nestjs/services/trace-context.service';
-import { TraceContextManager } from '../../../src/core/context';
-import type { ITraceContext, ILoggerAdapter } from '../../../src/core/interfaces';
+import { ClsService } from 'nestjs-cls';
 
 describe('TraceContextService', () => {
   let service: TraceContextService;
-  let mockContextManager: TraceContextManager;
-  let mockLogger: ILoggerAdapter;
+  let mockClsService: ClsService;
 
   beforeEach(() => {
     vi.clearAllMocks();
-    mockContextManager = {
-      getCurrent: vi.fn(),
-      create: vi.fn(),
-      run: vi.fn(),
-      runAsync: vi.fn(),
-      createChild: vi.fn(),
-      hasContext: vi.fn(),
-      getCurrentTraceId: vi.fn(),
-      getCurrentSpanId: vi.fn(),
-      isSameTrace: vi.fn(),
-    } as any;
+    mockClsService = {
+      get: vi.fn(),
+      set: vi.fn(),
+      getId: vi.fn(),
+      isActive: vi.fn().mockReturnValue(true),
+      run: vi.fn((fn: () => unknown) => fn()),
+    } as unknown as ClsService;
 
-    mockLogger = {
-      log: vi.fn(),
-      error: vi.fn(),
-      warn: vi.fn(),
-      debug: vi.fn(),
-      verbose: vi.fn(),
-    };
-
-    service = new TraceContextService(mockContextManager, mockLogger);
+    service = new TraceContextService(mockClsService);
   });
 
-  it('should create service with context manager', () => {
+  it('should create service with cls service', () => {
     expect(service).toBeDefined();
   });
 
   it('should get current trace ID', () => {
     const expectedTraceId = 'test-trace-123';
-    vi.mocked(mockContextManager.getCurrentTraceId).mockReturnValue(expectedTraceId);
+    vi.mocked(mockClsService.get).mockReturnValue(expectedTraceId);
 
     const result = service.getTraceId();
     expect(result).toBe(expectedTraceId);
-    expect(mockContextManager.getCurrentTraceId).toHaveBeenCalled();
+    expect(mockClsService.get).toHaveBeenCalledWith('traceId');
   });
 
   it('should return undefined when no trace ID exists', () => {
-    vi.mocked(mockContextManager.getCurrentTraceId).mockReturnValue(undefined);
+    vi.mocked(mockClsService.get).mockReturnValue(undefined);
 
     const result = service.getTraceId();
     expect(result).toBeUndefined();
   });
 
-  it('should get current span ID', () => {
-    const expectedSpanId = '12345678';
-    vi.mocked(mockContextManager.getCurrentSpanId).mockReturnValue(expectedSpanId);
+  it('should return undefined when CLS is not active', () => {
+    vi.mocked(mockClsService.isActive).mockReturnValue(false);
 
-    const result = service.getSpanId();
-    expect(result).toBe(expectedSpanId);
-    expect(mockContextManager.getCurrentSpanId).toHaveBeenCalled();
+    const result = service.getTraceId();
+    expect(result).toBeUndefined();
   });
 
-  it('should get current context', () => {
-    const expectedContext: ITraceContext = {
-      traceId: 'test-trace',
-      spanId: '12345678',
-      startTime: Date.now(),
-    };
+  it('should set trace ID', () => {
+    const traceId = 'new-trace-id';
+    service.setTraceId(traceId);
 
-    vi.mocked(mockContextManager.getCurrent).mockReturnValue(expectedContext);
+    expect(mockClsService.set).toHaveBeenCalledWith('traceId', traceId);
+  });
 
-    const result = service.getContext();
-    expect(result).toEqual(expectedContext);
-    expect(mockContextManager.getCurrent).toHaveBeenCalled();
+  it('should not set trace ID when CLS is not active', () => {
+    vi.mocked(mockClsService.isActive).mockReturnValue(false);
+    service.setTraceId('test-trace');
+
+    expect(mockClsService.set).not.toHaveBeenCalled();
+  });
+
+  it('should generate trace ID', () => {
+    const result = service.generateTraceId();
+
+    expect(result).toBeDefined();
+    expect(result).toMatch(/^[0-9a-f-]{36}$/); // UUID format
+    expect(mockClsService.set).toHaveBeenCalledWith('traceId', result);
   });
 
   it('should check if context exists', () => {
-    vi.mocked(mockContextManager.hasContext).mockReturnValue(true);
+    vi.mocked(mockClsService.get).mockReturnValue('test-trace');
 
     const result = service.hasContext();
     expect(result).toBe(true);
-    expect(mockContextManager.hasContext).toHaveBeenCalled();
   });
 
-  it('should create child context', () => {
-    const expectedChild: ITraceContext = {
-      traceId: 'parent-trace',
-      spanId: 'child-span',
-      parentSpanId: 'parent-span',
-      startTime: Date.now(),
-    };
+  it('should return false when no context exists', () => {
+    vi.mocked(mockClsService.get).mockReturnValue(undefined);
 
-    vi.mocked(mockContextManager.createChild).mockReturnValue(expectedChild);
+    const result = service.hasContext();
+    expect(result).toBe(false);
+  });
 
-    const result = service.createChild();
-    expect(result).toEqual(expectedChild);
-    expect(mockContextManager.createChild).toHaveBeenCalled();
+  it('should check if CLS is active', () => {
+    vi.mocked(mockClsService.isActive).mockReturnValue(true);
+
+    const result = service.isActive();
+    expect(result).toBe(true);
   });
 
   it('should run function with new context', () => {
-    const newContext: ITraceContext = {
-      traceId: 'new-trace',
-      spanId: 'new-span',
-      startTime: Date.now(),
-    };
-
     const fn = vi.fn(() => 'result');
-    vi.mocked(mockContextManager.run).mockReturnValue('result');
+    vi.mocked(mockClsService.run).mockImplementation((callback: () => unknown) => callback());
 
-    const result = service.runWithContext(newContext, fn);
+    const result = service.run(fn);
 
     expect(result).toBe('result');
-    expect(mockContextManager.run).toHaveBeenCalledWith(newContext, fn);
+    expect(mockClsService.run).toHaveBeenCalled();
+    expect(mockClsService.set).toHaveBeenCalledWith('traceId', expect.any(String));
+  });
+
+  it('should run function with provided trace ID', () => {
+    const fn = vi.fn(() => 'result');
+    const traceId = 'custom-trace-id';
+
+    service.run(fn, traceId);
+
+    expect(mockClsService.set).toHaveBeenCalledWith('traceId', traceId);
   });
 
   it('should run async function with new context', async () => {
-    const newContext: ITraceContext = {
-      traceId: 'new-trace',
-      spanId: 'new-span',
-      startTime: Date.now(),
-    };
-
     const fn = vi.fn(async () => 'async-result');
-    vi.mocked(mockContextManager.runAsync).mockResolvedValue('async-result');
+    vi.mocked(mockClsService.run).mockImplementation((callback: () => unknown) => callback());
 
-    const result = await service.runWithContextAsync(newContext, fn);
+    const result = await service.runAsync(fn);
 
     expect(result).toBe('async-result');
-    expect(mockContextManager.runAsync).toHaveBeenCalledWith(newContext, fn);
-  });
-
-  it('should log context information', () => {
-    const context: ITraceContext = {
-      traceId: 'test-trace',
-      spanId: '12345678',
-      startTime: Date.now(),
-    };
-
-    vi.mocked(mockContextManager.getCurrent).mockReturnValue(context);
-
-    service.logContext();
-
-    expect(mockLogger.log).toHaveBeenCalledWith(
-      expect.stringContaining('test-trace'),
-      context,
-    );
-  });
-
-  it('should log warning when no context exists', () => {
-    vi.mocked(mockContextManager.getCurrent).mockReturnValue(undefined);
-
-    service.logContext();
-
-    expect(mockLogger.warn).toHaveBeenCalledWith(
-      'No trace context available'
-    );
+    expect(mockClsService.run).toHaveBeenCalled();
   });
 
   it('should check if trace ID matches current trace', () => {
-    vi.mocked(mockContextManager.isSameTrace).mockReturnValue(true);
+    vi.mocked(mockClsService.get).mockReturnValue('test-trace');
 
     const result = service.isSameTrace('test-trace');
     expect(result).toBe(true);
-    expect(mockContextManager.isSameTrace).toHaveBeenCalledWith('test-trace');
   });
 
-  it('should create context with validation', () => {
-    const traceId = 'test-trace';
-    const spanId = 'test-span';
-    const parentSpanId = 'parent';
+  it('should return false when trace ID does not match', () => {
+    vi.mocked(mockClsService.get).mockReturnValue('different-trace');
 
-    const expectedContext: ITraceContext = {
-      traceId,
-      spanId,
-      parentSpanId,
-      startTime: Date.now(),
-    };
-
-    vi.mocked(mockContextManager.create).mockReturnValue(expectedContext);
-
-    const result = service.createContext(traceId, spanId, parentSpanId);
-    expect(result).toEqual(expectedContext);
-    expect(mockContextManager.create).toHaveBeenCalledWith(traceId, spanId, parentSpanId);
+    const result = service.isSameTrace('test-trace');
+    expect(result).toBe(false);
   });
 
-  it('should handle errors gracefully', () => {
-    const error = new Error('Test error');
-    vi.mocked(mockContextManager.getCurrent).mockImplementation(() => {
-      throw error;
+  it('should get ClsService instance', () => {
+    const result = service.getClsService();
+    expect(result).toBe(mockClsService);
+  });
+
+  it('should handle errors gracefully in getTraceId', () => {
+    vi.mocked(mockClsService.isActive).mockImplementation(() => {
+      throw new Error('Test error');
     });
 
-    expect(() => service.getContext()).toThrow('Test error');
-    expect(mockLogger.error).toHaveBeenCalledWith(
-      'Error getting trace context',
-      error,
-    );
+    const result = service.getTraceId();
+    expect(result).toBeUndefined();
   });
 
-  it('should handle async errors gracefully', async () => {
-    const error = new Error('Async test error');
-    const context: ITraceContext = {
-      traceId: 'test-trace',
-      spanId: '12345678',
-      startTime: Date.now(),
-    };
+  it('should handle errors gracefully in hasContext', () => {
+    vi.mocked(mockClsService.isActive).mockImplementation(() => {
+      throw new Error('Test error');
+    });
 
-    vi.mocked(mockContextManager.getCurrent).mockReturnValue(context);
-    vi.mocked(mockContextManager.runAsync).mockRejectedValue(error);
+    const result = service.hasContext();
+    expect(result).toBe(false);
+  });
 
-    const fn = vi.fn(async () => 'result');
+  it('should handle errors gracefully in isSameTrace', () => {
+    vi.mocked(mockClsService.get).mockImplementation(() => {
+      throw new Error('Test error');
+    });
 
-    await expect(service.runWithContextAsync(context, fn)).rejects.toThrow('Async test error');
-    expect(mockLogger.error).toHaveBeenCalledWith(
-      'Error running with context',
-      error,
-    );
+    const result = service.isSameTrace('test-trace');
+    expect(result).toBe(false);
   });
 });
