@@ -1,167 +1,371 @@
 # @m16khb/nestjs-traceable
 
-NestJS용 Traceable 데코레이터 라이브러리입니다. 메서드 실행 추적 및 로깅 기능을 제공합니다.
+NestJS 애플리케이션을 위한 **traceId 기반 분산 추적 라이브러리**.
 
-## 특징
+다양한 통신 채널(HTTP, gRPC, Kafka, Cron, BullMQ)을 통한 요청을 단일 traceId로 연결하여 분산 시스템의 디버깅과 모니터링을 단순화합니다.
 
-- 🚀 간편한 메서드 추적 기능
-- 📝 자동 로그 생성 (시작, 종료, 예외)
-- 🔍 실행 시간 측정
-- 🎯 사용자 정의 로거 지원
-- 📦 제로 의존성 (NestJS 외)
-- 💪 TypeScript 완전 지원
+## Features
 
-## 설치
+- **traceId 자동 전파**: HTTP, gRPC, Kafka, BullMQ 간 traceId 연속성 유지
+- **Winston 통합 로거**: 모든 로그에 traceId 자동 주입
+- **추상 클래스 패턴**: 보일러플레이트 코드 제거
+- **Zero Configuration**: 기본 설정만으로 즉시 사용 가능
+- **TypeScript 완벽 지원**: 타입 안전성 보장
+
+## Installation
 
 ```bash
-npm install @m16khb/nestjs-traceable
-# 또는
-yarn add @m16khb/nestjs-traceable
-# 또는
-pnpm add @m16khb/nestjs-traceable
+# npm
+npm install @m16khb/nestjs-traceable nestjs-cls
+
+# yarn
+yarn add @m16khb/nestjs-traceable nestjs-cls
+
+# pnpm
+pnpm add @m16khb/nestjs-traceable nestjs-cls
 ```
 
-## 사용법
+### Optional Dependencies
 
-### 기본 사용
+사용하는 기능에 따라 추가 패키지를 설치하세요:
 
-```typescript
-import { Traceable } from '@m16khb/nestjs-traceable';
+```bash
+# Winston 로거 (권장)
+pnpm add nest-winston winston dayjs
 
-@Injectable()
-export class UserService {
-  @Traceable()
-  async createUser(userData: CreateUserDto): Promise<User> {
-    // 비즈니스 로직
-    const user = await this.userRepository.save(userData);
-    return user;
-  }
+# BullMQ Job 추적
+pnpm add @nestjs/bullmq bullmq
 
-  @Traceable('사용자 삭제')
-  async deleteUser(id: string): Promise<void> {
-    await this.userRepository.delete(id);
-  }
-}
+# Cron Job 추적
+pnpm add @nestjs/schedule
 ```
 
-### 옵션 사용
+## Quick Start
 
-```typescript
-import { Traceable, TraceOptions } from '@m16khb/nestjs-traceable';
-
-@Injectable()
-export class OrderService {
-  @Traceable({
-    operation: '주문 처리',
-    includeArgs: true,
-    includeResult: false,
-    logLevel: 'verbose',
-    logExceptions: true
-  })
-  async processOrder(orderId: string): Promise<OrderResult> {
-    // 주문 처리 로직
-  }
-}
-```
-
-### 전역 설정
+### 1. 기본 설정
 
 ```typescript
 // app.module.ts
-import { TraceableModule } from '@m16khb/nestjs-traceable';
+import { Module } from '@nestjs/common';
+import { TraceModule } from '@m16khb/nestjs-traceable';
 
 @Module({
   imports: [
-    TraceableModule.forRoot({
-      global: true,
-      defaultLogLevel: 'info',
-      logExceptions: true
-    })
+    TraceModule.forRoot({
+      headerName: 'X-Trace-Id', // 기본값
+    }),
   ],
-  // ...
 })
 export class AppModule {}
 ```
 
-### 커스텀 로거 사용
+### 2. 서비스에서 traceId 사용
 
 ```typescript
-import { TraceableModule, CustomLogger } from '@m16khb/nestjs-traceable';
+// payment.service.ts
+import { Injectable } from '@nestjs/common';
+import { TraceContextService } from '@m16khb/nestjs-traceable';
 
 @Injectable()
-export class CustomTraceLogger implements CustomLogger {
-  logStart(operation: string, args?: any[]): void {
-    console.log(`[START] ${operation}`, args);
-  }
+export class PaymentService {
+  constructor(private readonly traceContext: TraceContextService) {}
 
-  logSuccess(operation: string, duration: number, result?: any): void {
-    console.log(`[SUCCESS] ${operation} (${duration}ms)`, result);
-  }
-
-  logException(operation: string, error: Error, duration: number): void {
-    console.error(`[ERROR] ${operation} (${duration}ms)`, error);
+  async processPayment(orderId: string): Promise<void> {
+    const traceId = this.traceContext.getTraceId();
+    console.log(`[${traceId}] Processing payment for order ${orderId}`);
+    // ...
   }
 }
+```
 
-// module.ts
+### 3. Winston 로거 설정 (권장)
+
+```typescript
+// app.module.ts
+import { Module } from '@nestjs/common';
+import { TraceModule, TraceableLoggerModule } from '@m16khb/nestjs-traceable';
+
 @Module({
   imports: [
-    TraceableModule.forRoot({
-      logger: new CustomTraceLogger()
-    })
-  ]
+    TraceModule.forRoot(),
+    TraceableLoggerModule.forRoot({
+      level: 'info',
+      isLocal: process.env.NODE_ENV !== 'production',
+      appName: 'MyApp',
+      traceIdLength: 8, // traceId 표시 길이 (0: 전체)
+    }),
+  ],
 })
 export class AppModule {}
 ```
 
-## API
-
-### Traceable 데코레이터
-
-메서드 실행을 추적하는 데코레이터입니다.
-
 ```typescript
-@Traceable(operation?: string | TraceOptions)
-```
+// payment.service.ts
+import { Injectable } from '@nestjs/common';
+import { TraceableLogger } from '@m16khb/nestjs-traceable';
 
-#### 파라미터
+@Injectable()
+export class PaymentService {
+  private readonly logger: TraceableLogger;
 
-- `operation?`: string | TraceOptions
-  - string: 추적할 작업 이름
-  - TraceOptions: 상세 옵션
+  constructor(logger: TraceableLogger) {
+    this.logger = logger.setContext('PaymentService');
+  }
 
-#### TraceOptions
+  async processPayment(orderId: string): Promise<void> {
+    this.logger.log('결제 처리 시작', { orderId });
+    // 출력: [MyApp] 12345 - 12/06/2025, 12:30:45 AM LOG [PaymentService] [abc12345] 결제 처리 시작
 
-```typescript
-interface TraceOptions {
-  operation?: string;           // 작업 이름
-  includeArgs?: boolean;        // 인자 로깅 여부 (기본값: false)
-  includeResult?: boolean;      // 결과 로깅 여부 (기본값: false)
-  logLevel?: LogLevel;          // 로그 레벨 (기본값: 'info')
-  logExceptions?: boolean;      // 예외 로깅 여부 (기본값: true)
-  logger?: CustomLogger;        // 커스텀 로거
+    try {
+      await this.doPayment();
+      this.logger.log('결제 완료', { orderId, amount: 10000 });
+    } catch (error) {
+      this.logger.error('결제 실패', error);
+    }
+  }
 }
 ```
 
-### TraceableModule
+## Integration Patterns
 
-Traceable 기능을 위한 NestJS 모듈입니다.
+### HTTP 요청 추적
+
+기본 설정만으로 HTTP 요청의 traceId가 자동 처리됩니다:
+
+- `X-Trace-Id` 헤더가 있으면 해당 값 사용
+- 없으면 UUID v4로 새 traceId 생성
+- 응답 헤더에 traceId 포함
+
+### BullMQ Job 추적
 
 ```typescript
-TraceableModule.forRoot(options?: TraceableModuleOptions)
-```
+// payment.processor.ts
+import { Processor } from '@nestjs/bullmq';
+import { TraceableProcessor, TraceableJobData, TraceableLogger } from '@m16khb/nestjs-traceable';
+import { ClsService } from 'nestjs-cls';
+import { Job } from 'bullmq';
 
-#### TraceableModuleOptions
+interface PaymentJobData extends TraceableJobData {
+  orderId: string;
+  amount: number;
+}
 
-```typescript
-interface TraceableModuleOptions {
-  global?: boolean;              // 전역 모듈 여부 (기본값: true)
-  defaultLogLevel?: LogLevel;    // 기본 로그 레벨 (기본값: 'info')
-  logExceptions?: boolean;       // 전역 예외 로깅 여부 (기본값: true)
-  logger?: CustomLogger;         // 전역 커스텀 로거
+@Processor('payment')
+export class PaymentProcessor extends TraceableProcessor<PaymentJobData, void> {
+  constructor(
+    cls: ClsService,
+    private readonly paymentService: PaymentService,
+    private readonly logger: TraceableLogger,
+  ) {
+    super(cls);
+  }
+
+  protected async executeJob(job: Job<PaymentJobData>): Promise<void> {
+    // traceId가 이미 CLS에 설정됨!
+    this.logger.log(`결제 처리: ${job.data.orderId}`);
+    await this.paymentService.process(job.data);
+  }
 }
 ```
 
-## 라이선스
+```typescript
+// payment-queue.service.ts
+import { Injectable } from '@nestjs/common';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
+import { TraceableQueueService } from '@m16khb/nestjs-traceable';
+import { ClsService } from 'nestjs-cls';
+
+interface PaymentJobData {
+  orderId: string;
+  amount: number;
+}
+
+@Injectable()
+export class PaymentQueueService extends TraceableQueueService<PaymentJobData> {
+  constructor(
+    @InjectQueue('payment') queue: Queue,
+    cls: ClsService,
+  ) {
+    super(queue, cls);
+  }
+
+  async addPaymentJob(orderId: string, amount: number): Promise<string> {
+    // traceId가 자동으로 job.data에 포함됨
+    return this.addJob('process', { orderId, amount });
+  }
+}
+```
+
+### Cron Job 추적
+
+```typescript
+// report.cron.ts
+import { Injectable } from '@nestjs/common';
+import { Cron } from '@nestjs/schedule';
+import { TraceableCronService, TraceableLogger } from '@m16khb/nestjs-traceable';
+import { ClsService } from 'nestjs-cls';
+
+@Injectable()
+export class ReportCronService extends TraceableCronService {
+  constructor(
+    cls: ClsService,
+    private readonly reportService: ReportService,
+    private readonly logger: TraceableLogger,
+  ) {
+    super(cls);
+  }
+
+  @Cron('0 0 * * *', { name: 'daily-report', timeZone: 'Asia/Seoul' })
+  async generateDailyReport(): Promise<void> {
+    await this.runWithTrace(async () => {
+      this.logger.log('[크론] 일일 리포트 생성 시작');
+      await this.reportService.generate();
+    });
+  }
+}
+```
+
+### gRPC 서비스 추적
+
+```typescript
+// app.module.ts
+import { Module } from '@nestjs/common';
+import { APP_INTERCEPTOR } from '@nestjs/core';
+import { TraceModule, TraceGrpcInterceptor } from '@m16khb/nestjs-traceable';
+
+@Module({
+  imports: [TraceModule.forRoot()],
+  providers: [
+    { provide: APP_INTERCEPTOR, useClass: TraceGrpcInterceptor },
+  ],
+})
+export class AppModule {}
+```
+
+### Kafka 이벤트 추적
+
+```typescript
+// app.module.ts
+import { Module } from '@nestjs/common';
+import { APP_INTERCEPTOR } from '@nestjs/core';
+import { TraceModule, TraceKafkaInterceptor } from '@m16khb/nestjs-traceable';
+
+@Module({
+  imports: [TraceModule.forRoot()],
+  providers: [
+    { provide: APP_INTERCEPTOR, useClass: TraceKafkaInterceptor },
+  ],
+})
+export class AppModule {}
+```
+
+Producer에서 traceId 전달:
+
+```typescript
+import { createKafkaTraceHeaders } from '@m16khb/nestjs-traceable';
+
+await this.kafkaClient.emit('topic', {
+  key: 'key',
+  value: JSON.stringify(data),
+  headers: createKafkaTraceHeaders(traceId),
+});
+```
+
+## API Reference
+
+### TraceModule
+
+| 메서드 | 설명 |
+|--------|------|
+| `forRoot(options?)` | 기본 모듈 설정 |
+| `forRootAsync(options)` | 비동기 모듈 설정 (ConfigService 등) |
+| `register(options?)` | forRoot의 별칭 |
+
+### TraceModuleOptions
+
+| 옵션 | 타입 | 기본값 | 설명 |
+|------|------|--------|------|
+| `headerName` | string | `'X-Trace-Id'` | traceId 헤더명 |
+
+### TraceContextService
+
+| 메서드 | 반환 타입 | 설명 |
+|--------|----------|------|
+| `getTraceId()` | `string \| undefined` | 현재 traceId 조회 |
+| `setTraceId(traceId)` | `void` | traceId 설정 |
+| `generateTraceId()` | `string` | 새 traceId 생성 및 설정 |
+| `hasContext()` | `boolean` | traceId 존재 여부 |
+| `isActive()` | `boolean` | CLS 활성화 여부 |
+| `run(fn, traceId?)` | `T` | 새 컨텍스트에서 동기 함수 실행 |
+| `runAsync(fn, traceId?)` | `Promise<T>` | 새 컨텍스트에서 비동기 함수 실행 |
+
+### TraceableLogger
+
+| 메서드 | 레벨 | 설명 |
+|--------|------|------|
+| `log(message, meta?)` | info | 일반 정보 로그 |
+| `error(message, errorOrMeta?)` | error | 에러 로그 |
+| `warn(message, meta?)` | warn | 경고 로그 |
+| `debug(message, meta?)` | debug | 디버그 로그 |
+| `verbose(message, meta?)` | verbose | 상세 로그 |
+| `query(message, meta?)` | query | SQL 쿼리 로그 |
+| `slowQuery(message, durationMs, meta?)` | warn | 느린 쿼리 경고 |
+| `fatal(message, errorOrMeta?)` | error | 치명적 오류 |
+| `setContext(context)` | `TraceableLogger` | 컨텍스트 설정 |
+
+### TraceableLoggerModuleOptions
+
+| 옵션 | 타입 | 기본값 | 설명 |
+|------|------|--------|------|
+| `level` | LogLevel | `'info'` | 최소 로그 레벨 |
+| `isLocal` | boolean | `NODE_ENV !== 'production'` | Pretty/JSON 출력 전환 |
+| `appName` | string | `'Nest'` | 로그 프리픽스 |
+| `traceIdLength` | number | `8` | traceId 표시 길이 |
+| `timestampFormat` | `() => string` | dayjs 기반 | 타임스탬프 포맷 |
+
+## Output Formats
+
+### Local (Pretty)
+
+```
+[MyApp] 12345 - 12/06/2025, 12:30:45 AM LOG     [PaymentService] [abc12345] 결제 처리 시작
+```
+
+### Production (JSON)
+
+```json
+{"timestamp":"2025-12-06T00:30:45.123+0900","level":"info","context":"PaymentService","traceId":"abc12345-def6-7890","message":"결제 처리 시작"}
+```
+
+## Requirements
+
+- Node.js 20+
+- NestJS 10.x / 11.x
+- TypeScript 5.7+
+
+## Dependencies
+
+### Required (peerDependencies)
+
+| 패키지 | 버전 |
+|--------|------|
+| `@nestjs/common` | ^10.0.0 \|\| ^11.0.0 |
+| `@nestjs/core` | ^10.0.0 \|\| ^11.0.0 |
+| `nestjs-cls` | ^4.0.0 \|\| ^5.0.0 |
+| `rxjs` | ^7.0.0 |
+
+### Optional (peerDependencies)
+
+| 패키지 | 버전 | 용도 |
+|--------|------|------|
+| `@nestjs/bullmq` | ^10.0.0 \|\| ^11.0.0 | BullMQ 지원 |
+| `bullmq` | ^5.0.0 | BullMQ Worker |
+| `@nestjs/schedule` | ^4.0.0 \|\| ^5.0.0 | Cron 지원 |
+| `nest-winston` | ^1.9.0 \|\| ^2.0.0 | Winston 통합 |
+| `winston` | ^3.0.0 | 로깅 |
+| `dayjs` | ^1.11.0 | 타임스탬프 |
+
+## License
 
 MIT

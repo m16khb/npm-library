@@ -42,14 +42,13 @@ npm-library/
 | [nestjs-async-utils](packages/nestjs-async-utils/README.md)     | NestJS 비동기 유틸리티 데코레이터      |
 
 ## Active Technologies
+- TypeScript 5.7+ (ES2022, strict mode) + @nestjs/common ^10.0.0 || ^11.0.0, rxjs ^7.0.0 (peerDependencies) (003-nestjs-traceable)
+- N/A (in-memory AsyncLocalStorage only) (003-nestjs-traceable)
 
 - N/A (in-memory state only - 동시성 카운터, 큐) (002-nestjs-async-decorators)
-
-- TypeScript 5.7+ (ES2022) (004-universal-tracer)
-- N/A (in-memory CLS) (004-universal-tracer)
 - TypeScript 5.7+ (ES2022, strict mode) + Zero dependency (core), @nestjs/common ^10.0.0 || ^11.0.0 (peerDependency) (001-async-utils)
 - N/A (in-memory state only) (001-async-utils)
 
 ## Recent Changes
 
-- 004-universal-tracer: Added TypeScript 5.7+ (ES2022)
+- 002-nestjs-async-decorators: NestJS 비동기 데코레이터 라이브러리 추가
