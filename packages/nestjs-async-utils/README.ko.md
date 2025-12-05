@@ -5,7 +5,7 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.7+-blue.svg)](https://www.typescriptlang.org/)
 [![NestJS](https://img.shields.io/badge/NestJS-10%20%7C%2011-red.svg)](https://nestjs.com/)
 
-[English](https://github.com/m16khb/nestjs-async-utils/blob/main/README.md) | [한국어](#)
+[English](https://github.com/m16khb/npm-library/blob/main/packages/nestjs-async-utils/README.md) | [한국어](#)
 
 NestJS 비동기 작업 제어 라이브러리. `@Retryable`, `@Timeout`, `@ConcurrencyLimit` 데코레이터로 메서드에 재시도, 타임아웃, 동시성 제한 기능을 선언적으로 적용할 수 있습니다.
 

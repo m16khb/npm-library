@@ -5,7 +5,7 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.7+-blue.svg)](https://www.typescriptlang.org/)
 [![NestJS](https://img.shields.io/badge/NestJS-10%20%7C%2011-red.svg)](https://nestjs.com/)
 
-[English](#) | [한국어](https://github.com/m16khb/nestjs-async-utils/blob/main/README.ko.md)
+[English](#) | [한국어](https://github.com/m16khb/npm-library/blob/main/packages/nestjs-async-utils/README.ko.md)
 
 NestJS async operation control library. Apply retry, timeout, and concurrency limiting to methods declaratively using `@Retryable`, `@Timeout`, and `@ConcurrencyLimit` decorators.
 

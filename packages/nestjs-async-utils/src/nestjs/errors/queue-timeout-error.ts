@@ -21,6 +21,7 @@ export class QueueTimeoutError extends Error {
     super(`Queue timeout after ${queueTimeout}ms for ${methodName}`);
     // Node.js 전용: 스택 트레이스에서 이 클래스 생성자를 제외
     const ErrorWithCapture = Error as typeof Error & {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
       captureStackTrace?: (target: object, constructor: Function) => void;
     };
     ErrorWithCapture.captureStackTrace?.(this, QueueTimeoutError);

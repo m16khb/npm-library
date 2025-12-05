@@ -1,6 +1,6 @@
 {
   "name": "@m16khb/nestjs-async-utils",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "NestJS 비동기 작업 제어 라이브러리 - @Retryable, @Timeout, @ConcurrencyLimit 데코레이터",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
@@ -61,12 +61,13 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/m16khb/nestjs-async-utils.git"
+    "url": "https://github.com/m16khb/npm-library.git",
+    "directory": "packages/nestjs-async-utils"
   },
   "bugs": {
-    "url": "https://github.com/m16khb/nestjs-async-utils/issues"
+    "url": "https://github.com/m16khb/npm-library/issues"
   },
-  "homepage": "https://github.com/m16khb/nestjs-async-utils#readme",
+  "homepage": "https://github.com/m16khb/npm-library/tree/main/packages/nestjs-async-utils#readme",
   "devDependencies": {
     "@nestjs/common": "^10.0.0",
     "@nestjs/core": "^10.0.0",
