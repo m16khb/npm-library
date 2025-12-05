@@ -21,19 +21,24 @@ export interface ITraceContext {
   readonly spanId: string;
 
   /** 부모 span의 ID (8자리 hex 또는 undefined) */
-  readonly parentSpanId?: string;
+  readonly parentISpanId?: string;
 
   /** 컨텍스트 시작 시간 (Unix timestamp ms) */
   readonly startTime: number;
 }
 
 /**
- * Span 상태
+ * ISpan 상태
  */
-export type SpanStatus = 'ok' | 'error';
+export type ISpanStatus = 'ok' | 'error';
 
 /**
- * Span 인터페이스
+ * 로그 레벨
+ */
+export type LogLevel = 'debug' | 'info' | 'warn' | 'error' | 'fatal';
+
+/**
+ * ISpan 인터페이스
  * 개별 작업 단위를 나타낸다.
  */
 export interface ISpan {
@@ -44,7 +49,7 @@ export interface ISpan {
   readonly spanId: string;
 
   /** 부모 span의 ID */
-  readonly parentSpanId?: string;
+  readonly parentISpanId?: string;
 
   /** 작업명 */
   readonly operationName: string;
@@ -56,7 +61,7 @@ export interface ISpan {
   endTime?: number;
 
   /** 작업 상태 */
-  status: SpanStatus;
+  status: ISpanStatus;
 }
 
 // =============================================================================
@@ -66,7 +71,7 @@ export interface ISpan {
 /**
  * TraceId 생성기 인터페이스
  */
-export interface ITraceIdGenerator {
+export interface IITraceIdGenerator {
   /**
    * 새로운 traceId를 생성한다.
    * @returns 1-128자 문자열
@@ -75,7 +80,7 @@ export interface ITraceIdGenerator {
 }
 
 /**
- * SpanId 생성기 인터페이스
+ * ISpanId 생성기 인터페이스
  */
 export interface ISpanIdGenerator {
   /**
@@ -88,6 +93,32 @@ export interface ISpanIdGenerator {
 // =============================================================================
 // Adapter Interfaces
 // =============================================================================
+
+/**
+ * CLS 어댑터 인터페이스
+ * Continuation Local Storage 구현을 추상화
+ */
+export interface IClsAdapter {
+  /**
+   * 현재 컨텍스트를 가져온다
+   */
+  getCurrent(): ITraceContext | undefined;
+
+  /**
+   * 컨텍스트를 설정하고 함수를 실행한다
+   */
+  run<T>(context: ITraceContext, fn: () => T): T;
+
+  /**
+   * 컨텍스트를 설정하고 비동기 함수를 실행한다
+   */
+  runAsync<T>(context: ITraceContext, fn: () => Promise<T>): Promise<T>;
+
+  /**
+   * 컨텍스트가 있는지 확인한다
+   */
+  hasContext(): boolean;
+}
 
 /**
  * 로거 어댑터 인터페이스
@@ -164,24 +195,24 @@ export interface TraceModuleOptions {
   global?: boolean;
 
   /**
-   * Span 최대 중첩 깊이
+   * ISpan 최대 중첩 깊이
    * 이 값을 초과하면 새 span 생성이 무시되고 경고 로그 출력
    * @default 100
    */
-  maxSpanDepth?: number;
+  maxISpanDepth?: number;
 
   /**
    * 미종료 span 자동 정리 활성화
    * HTTP 요청 완료 시 미종료 span을 자동으로 'error' 상태로 종료
    * @default true
    */
-  autoCleanupSpans?: boolean;
+  autoCleanupISpans?: boolean;
 
   /**
    * 미종료 span 경고 로그 출력
    * @default true
    */
-  warnOnUnfinishedSpans?: boolean;
+  warnOnUnfinishedISpans?: boolean;
 }
 
 /**
@@ -211,7 +242,7 @@ export interface TraceModuleAsyncOptions {
 // =============================================================================
 
 /**
- * TraceContext 서비스 인터페이스
+ * ITraceContext 서비스 인터페이스
  * NestJS DI를 통해 주입받아 사용
  */
 export interface ITraceContextService {
@@ -225,25 +256,25 @@ export interface ITraceContextService {
    * 현재 spanId를 반환한다.
    * 컨텍스트가 없으면 undefined
    */
-  getSpanId(): string | undefined;
+  getISpanId(): string | undefined;
 
   /**
-   * 현재 TraceContext를 반환한다.
+   * 현재 ITraceContext를 반환한다.
    */
   getContext(): ITraceContext | undefined;
 
   /**
    * 새로운 span을 시작한다.
    * @param operationName 작업명
-   * @returns 생성된 Span
+   * @returns 생성된 ISpan
    */
-  startSpan(operationName: string): ISpan;
+  startISpan(operationName: string): ISpan;
 
   /**
    * 현재 span을 종료한다.
    * @param status 작업 상태
    */
-  endSpan(status?: SpanStatus): void;
+  endISpan(status?: ISpanStatus): void;
 
   /**
    * 주어진 컨텍스트 내에서 함수를 실행한다.
@@ -282,7 +313,7 @@ export const DEFAULT_HEADER_NAME = 'X-Trace-Id';
 export const TRACE_ID_MAX_LENGTH = 128;
 
 /**
- * SpanId 길이
+ * ISpanId 길이
  */
 export const SPAN_ID_LENGTH = 8;
 
@@ -297,7 +328,7 @@ export const BULLMQ_TRACE_KEY = '_traceId';
 export const GRPC_TRACE_KEY = 'trace-id';
 
 /**
- * Span 최대 중첩 깊이 기본값
+ * ISpan 최대 중첩 깊이 기본값
  */
 export const DEFAULT_MAX_SPAN_DEPTH = 100;
 

@@ -1,166 +1,188 @@
-# @m16khb/nestjs-traceable
+# NestJS Traceable
 
-NestJS용 Traceable 데코레이터 라이브러리입니다. 메서드 실행 추적 및 로깅 기능을 제공합니다.
-
-## 특징
-
-- 🚀 간편한 메서드 추적 기능
-- 📝 자동 로그 생성 (시작, 종료, 예외)
-- 🔍 실행 시간 측정
-- 🎯 사용자 정의 로거 지원
-- 📦 제로 의존성 (NestJS 외)
-- 💪 TypeScript 완전 지원
+NestJS 애플리케이션을 위한 분산 추적 라이브러리. AsyncLocalStorage 또는 nestjs-cls를 통해 요청 추적을 제공합니다.
 
 ## 설치
 
 ```bash
 npm install @m16khb/nestjs-traceable
 # 또는
-yarn add @m16khb/nestjs-traceable
-# 또는
 pnpm add @m16khb/nestjs-traceable
+# 또는
+yarn add @m16khb/nestjs-traceable
+
+# nestjs-cls를 사용하려면 추가 설치
+npm install nestjs-cls
 ```
 
-## 사용법
+## 기본 사용법
 
-### 기본 사용
-
-```typescript
-import { Traceable } from '@m16khb/nestjs-traceable';
-
-@Injectable()
-export class UserService {
-  @Traceable()
-  async createUser(userData: CreateUserDto): Promise<User> {
-    // 비즈니스 로직
-    const user = await this.userRepository.save(userData);
-    return user;
-  }
-
-  @Traceable('사용자 삭제')
-  async deleteUser(id: string): Promise<void> {
-    await this.userRepository.delete(id);
-  }
-}
-```
-
-### 옵션 사용
-
-```typescript
-import { Traceable, TraceOptions } from '@m16khb/nestjs-traceable';
-
-@Injectable()
-export class OrderService {
-  @Traceable({
-    operation: '주문 처리',
-    includeArgs: true,
-    includeResult: false,
-    logLevel: 'verbose',
-    logExceptions: true
-  })
-  async processOrder(orderId: string): Promise<OrderResult> {
-    // 주문 처리 로직
-  }
-}
-```
-
-### 전역 설정
+### 1. AsyncLocalStorage 사용 (기본)
 
 ```typescript
 // app.module.ts
-import { TraceableModule } from '@m16khb/nestjs-traceable';
+import { Module } from '@nestjs/common';
+import { TraceModule } from '@m16khb/nestjs-traceable';
 
 @Module({
   imports: [
-    TraceableModule.forRoot({
-      global: true,
-      defaultLogLevel: 'info',
-      logExceptions: true
-    })
+    TraceModule.forRoot({
+      headerName: 'X-Trace-Id',
+      serviceName: 'my-service',
+      environment: 'production',
+    }),
   ],
-  // ...
 })
 export class AppModule {}
 ```
 
-### 커스텀 로거 사용
+### 2. nestjs-cls 사용
 
 ```typescript
-import { TraceableModule, CustomLogger } from '@m16khb/nestjs-traceable';
+// app.module.ts
+import { Module } from '@nestjs/common';
+import { TraceModule } from '@m16khb/nestjs-traceable';
+
+@Module({
+  imports: [
+    TraceModule.forRoot({
+      clsImplementation: 'nestjs-cls',
+      clsOptions: {
+        middleware: {
+          mount: true,
+          extractFromHeaders: ['X-Trace-Id', 'X-Custom-Trace'],
+        },
+      },
+      serviceName: 'my-service',
+    }),
+  ],
+})
+export class AppModule {}
+```
+
+### 3. 비동기 설정 사용
+
+```typescript
+// app.module.ts
+import { Module } from '@nestjs/common';
+import { ConfigModule } from '@nestjs/config';
+import { TraceModule } from '@m16khb/nestjs-traceable';
+
+@Module({
+  imports: [
+    ConfigModule.forRoot(),
+    TraceModule.forRootAsync({
+      imports: [ConfigModule],
+      useFactory: (configService) => ({
+        headerName: configService.get('TRACE_HEADER') || 'X-Trace-Id',
+        serviceName: configService.get('SERVICE_NAME'),
+        clsImplementation: configService.get('CLS_IMPL') || 'async-local-storage',
+      }),
+      inject: [ConfigService],
+    }),
+  ],
+})
+export class AppModule {}
+```
+
+## 서비스에서 사용
+
+```typescript
+// app.service.ts
+import { Injectable } from '@nestjs/common';
+import { TraceContextService } from '@m16khb/nestjs-traceable';
 
 @Injectable()
-export class CustomTraceLogger implements CustomLogger {
-  logStart(operation: string, args?: any[]): void {
-    console.log(`[START] ${operation}`, args);
+export class AppService {
+  constructor(private readonly traceService: TraceContextService) {}
+
+  getHello(): string {
+    // 현재 traceId 가져오기
+    const traceId = this.traceService.getTraceId();
+
+    this.traceService.log('Processing request');
+
+    return `Hello! Trace ID: ${traceId}`;
   }
 
-  logSuccess(operation: string, duration: number, result?: any): void {
-    console.log(`[SUCCESS] ${operation} (${duration}ms)`, result);
+  async processData() {
+    // 자식 컨텍스트 생성
+    const childContext = this.traceService.createChild();
+
+    if (childContext) {
+      return this.traceService.runWithContextAsync(
+        childContext,
+        async () => {
+          this.traceService.log('Processing in child context');
+          // 비즈니스 로직 처리
+          return { success: true };
+        }
+      );
+    }
   }
-
-  logException(operation: string, error: Error, duration: number): void {
-    console.error(`[ERROR] ${operation} (${duration}ms)`, error);
-  }
-}
-
-// module.ts
-@Module({
-  imports: [
-    TraceableModule.forRoot({
-      logger: new CustomTraceLogger()
-    })
-  ]
-})
-export class AppModule {}
-```
-
-## API
-
-### Traceable 데코레이터
-
-메서드 실행을 추적하는 데코레이터입니다.
-
-```typescript
-@Traceable(operation?: string | TraceOptions)
-```
-
-#### 파라미터
-
-- `operation?`: string | TraceOptions
-  - string: 추적할 작업 이름
-  - TraceOptions: 상세 옵션
-
-#### TraceOptions
-
-```typescript
-interface TraceOptions {
-  operation?: string;           // 작업 이름
-  includeArgs?: boolean;        // 인자 로깅 여부 (기본값: false)
-  includeResult?: boolean;      // 결과 로깅 여부 (기본값: false)
-  logLevel?: LogLevel;          // 로그 레벨 (기본값: 'info')
-  logExceptions?: boolean;      // 예외 로깅 여부 (기본값: true)
-  logger?: CustomLogger;        // 커스텀 로거
 }
 ```
 
-### TraceableModule
-
-Traceable 기능을 위한 NestJS 모듈입니다.
+## 컨트롤러에서 추적
 
 ```typescript
-TraceableModule.forRoot(options?: TraceableModuleOptions)
-```
+// app.controller.ts
+import { Controller, Get } from '@nestjs/common';
+import { TraceContextService } from '@m16khb/nestjs-traceable';
+import { Trace } from '@m16khb/nestjs-traceable';
 
-#### TraceableModuleOptions
+@Controller()
+export class AppController {
+  constructor(private readonly traceService: TraceContextService) {}
 
-```typescript
-interface TraceableModuleOptions {
-  global?: boolean;              // 전역 모듈 여부 (기본값: true)
-  defaultLogLevel?: LogLevel;    // 기본 로그 레벨 (기본값: 'info')
-  logExceptions?: boolean;       // 전역 예외 로깅 여부 (기본값: true)
-  logger?: CustomLogger;         // 전역 커스텀 로거
+  @Get()
+  getHello() {
+    const traceId = this.traceService.getTraceId();
+    return { message: 'Hello World', traceId };
+  }
+
+  @Get('/traced')
+  @Trace('custom-operation')
+  getTracedEndpoint() {
+    // 이 메서드는 자동으로 추적됩니다
+    return { message: 'This is traced' };
+  }
 }
 ```
+
+## 옵션
+
+| 옵션 | 타입 | 기본값 | 설명 |
+|------|------|--------|------|
+| `clsImplementation` | `'async-local-storage' \| 'nestjs-cls'` | `'async-local-storage'` | CLS 구현 방식 선택 |
+| `headerName` | `string` | `'X-Trace-Id'` | HTTP 헤더명 |
+| `serviceName` | `string` | - | 서비스명 |
+| `serviceVersion` | `string` | - | 서비스 버전 |
+| `environment` | `string` | - | 환경 (development, production 등) |
+| `enabled` | `boolean` | `true` | 추적 활성화 여부 |
+| `maxSpanDepth` | `number` | `100` | 최대 span 중첩 깊이 |
+| `autoCleanupSpans` | `boolean` | `true` | 미종료 span 자동 정리 |
+| `warnOnUnfinishedSpans` | `boolean` | `true` | 미종료 span 경고 로그 |
+
+### CLS 옵션 (nestjs-cls 사용 시)
+
+| 옵션 | 타입 | 기본값 | 설명 |
+|------|------|--------|------|
+| `clsOptions.middleware.mount` | `boolean` | `true` | 미들웨어 자동 등록 |
+| `clsOptions.middleware.extractFromHeaders` | `string[]` | - | 추출할 헤더 목록 |
+| `clsOptions.idGenerator` | `() => string` | - | 사용자 정의 ID 생성기 |
+
+## HTTP 추적
+
+라이브러리가 설정되면 모든 HTTP 요청에 자동으로 traceId가 할당됩니다:
+
+### 요청 시 traceId가 없는 경우
+- 새로운 traceId 생성
+- 응답 헤더에 `X-Trace-Id` 추가
+
+### 요청 시 traceId가 있는 경우
+- 기존 traceId 사용
+- 응답 헤더에 동일한 `X-Trace-Id` 추가
 
 ## 라이선스
 

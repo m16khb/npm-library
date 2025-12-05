@@ -53,6 +53,8 @@ NestJS 백엔드 애플리케이션에서 다양한 통신 채널(HTTP, gRPC, Cr
 ### 의존성 정책
 - [x] NestJS/Fastify는 peerDependencies - **PASS**
 - [x] Zero external dependency - **PASS**
+  - AsyncLocalStorage 구현: Zero dependency
+  - nestjs-cls 구현: 선택적 peerDependency
 
 **Constitution Status**: ALL GATES PASSED
 

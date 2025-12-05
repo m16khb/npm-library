@@ -3,6 +3,7 @@
 **Feature Branch**: `003-nestjs-traceable`
 **Created**: 2025-12-05
 **Status**: Draft
+**Updated**: 2025-12-05 (CLS 통합 지원 추가)
 **Input**: NestJS 백엔드 애플리케이션에서 다양한 통신 채널(HTTP, gRPC, Cron, BullMQ)을 통해 요청을 추적하기 위한 traceId 기반 분산 추적 라이브러리
 
 ## Clarifications
@@ -12,6 +13,9 @@
 - Q: 추적 시스템 오류 발생 시 요청 처리 정책? → A: Silent Continue - 추적 없이 요청 처리 계속, 내부 경고 로그만 출력
 - Q: 외부 traceId 형식 검증 수준? → A: Lenient - 비어있지 않은 문자열이면 허용, 길이 제한(128자)만 적용
 - Q: 추적 샘플링 지원 여부? → A: No Sampling - 모든 요청 100% 추적, 샘플링 기능 없음 (단순성 우선)
+- Q: CLS(Continuation Local Storage) 구현 방식 선택? → A: 두 가지 방식 모두 지원
+  - **AsyncLocalStorage** (기본): Node.js 내장 API, Zero dependency
+  - **nestjs-cls**: 추가 기능 필요 시 선택적 사용
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -141,7 +145,10 @@
 #### 핵심 기능
 - **FR-001**: 시스템 MUST 진입점(HTTP, gRPC, Cron, BullMQ)에서 traceId를 자동 생성한다
 - **FR-002**: 시스템 MUST 외부에서 전달된 traceId를 수신하여 컨텍스트에 설정한다
-- **FR-003**: 시스템 MUST AsyncLocalStorage를 사용하여 요청 컨텍스트를 전파한다
+- **FR-003**: 시스템 MUST CLS(Continuation Local Storage)를 사용하여 요청 컨텍스트를 전파한다
+  - 기본 구현: Node.js 내장 AsyncLocalStorage
+  - 선택 구현: nestjs-cls 라이브러리
+- **FR-003-1**: 시스템 MUST CLS 구현 방식을 선택적으로 지원해야 한다
 - **FR-004**: 시스템 MUST 중첩 호출 시 spanId를 생성하고 parent-child 관계를 추적한다
 - **FR-005**: 시스템 MUST 동일 요청 내 모든 코드에서 현재 traceId에 접근할 수 있어야 한다
 
@@ -181,6 +188,9 @@
 - **Span**: 개별 작업 단위. 시작/종료 시간, 작업명, 상위 span 참조 포함
 - **TraceId**: 요청 전체를 식별하는 고유 식별자. 서비스 간 전파됨
 - **SpanId**: 개별 작업을 식별하는 고유 식별자. traceId 내에서 유일
+- **CLS Adapter**: Continuation Local Storage 구현을 추상화하는 인터페이스
+  - AsyncLocalStorageAdapter: Node.js 내장 API 사용
+  - NestjsClsAdapter: nestjs-cls 라이브러리 사용
 
 ## Success Criteria *(mandatory)*
 
@@ -192,6 +202,8 @@
 - **SC-004**: 동시 요청 1000개 처리 시 컨텍스트 격리가 100% 보장된다
 - **SC-005**: 개발자가 5분 이내에 기본 설정을 완료하고 첫 추적 로그를 확인할 수 있다
 - **SC-006**: 라이브러리가 NestJS 외 추가 런타임 의존성 없이 동작한다 (Zero external dependency)
+  - AsyncLocalStorage 구현: Zero dependency
+  - nestjs-cls 구현: 선택적 의존성 (peerDependency)
 - **SC-007**: Core 번들 사이즈가 5KB (gzipped) 미만이다
 - **SC-008**: Core + NestJS adapter 번들 사이즈가 10KB (gzipped) 미만이다
 
@@ -208,7 +220,9 @@
 ## Constraints
 
 - Zero dependency: NestJS core packages(@nestjs/common, @nestjs/core) 외 추가 의존성 없음
+  - 단, nestjs-cls는 선택적 peerDependency로 허용
 - TypeScript 5.7+ (ES2022) 타겟
 - NestJS 10.x / 11.x 호환성 유지
+- CLS 구현 방식은 런타임에 선택 가능해야 함
 - Node.js 20+ (AsyncLocalStorage 네이티브 지원)
 - No Sampling: 모든 요청 100% 추적 (샘플링 기능 미지원, 단순성 우선)

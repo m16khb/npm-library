@@ -10,11 +10,14 @@ npm install @m16khb/nestjs-traceable
 pnpm add @m16khb/nestjs-traceable
 # or
 yarn add @m16khb/nestjs-traceable
+
+# nestjs-cls를 사용하려면 추가 설치 (선택적)
+npm install nestjs-cls
 ```
 
 ## Basic Setup
 
-### 1. 모듈 등록
+### 1. 모듈 등록 - AsyncLocalStorage 방식 (기본)
 
 ```typescript
 // app.module.ts
@@ -23,7 +26,35 @@ import { TraceModule } from '@m16khb/nestjs-traceable';
 
 @Module({
   imports: [
-    TraceModule.forRoot(),
+    TraceModule.forRoot({
+      headerName: 'X-Trace-Id',
+      serviceName: 'my-service',
+    }),
+    // ... other modules
+  ],
+})
+export class AppModule {}
+```
+
+### 2. 모듈 등록 - nestjs-cls 방식
+
+```typescript
+// app.module.ts
+import { Module } from '@nestjs/common';
+import { TraceModule } from '@m16khb/nestjs-traceable';
+
+@Module({
+  imports: [
+    TraceModule.forRoot({
+      clsImplementation: 'nestjs-cls',
+      clsOptions: {
+        middleware: {
+          mount: true,
+          extractFromHeaders: ['X-Trace-Id', 'X-Custom-Trace'],
+        },
+      },
+      serviceName: 'my-service',
+    }),
     // ... other modules
   ],
 })

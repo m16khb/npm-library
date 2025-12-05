@@ -78,7 +78,8 @@
   "peerDependencies": {
     "@nestjs/common": "^10.0.0 || ^11.0.0",
     "@nestjs/core": "^10.0.0 || ^11.0.0",
-    "rxjs": "^7.0.0"
+    "rxjs": "^7.0.0",
+    "nestjs-cls": "^4.0.0"
   },
   "peerDependenciesMeta": {
     "@nestjs/common": {
@@ -89,6 +90,9 @@
     },
     "rxjs": {
       "optional": false
+    },
+    "nestjs-cls": {
+      "optional": true
     }
   },
   "engines": {

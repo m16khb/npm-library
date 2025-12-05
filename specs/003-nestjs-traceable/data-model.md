@@ -103,7 +103,32 @@ interface TraceModuleAsyncOptions {
 
 ## Adapter Interfaces
 
-### 5. LoggerAdapter
+### 5. ClsAdapter
+
+CLS(Continuation Local Storage) 어댑터 인터페이스. 구현을 추상화한다.
+
+```typescript
+interface ClsAdapter {
+  getCurrent(): TraceContext | undefined;
+  run<T>(context: TraceContext, fn: () => T): T;
+  runAsync<T>(context: TraceContext, fn: () => Promise<T>): Promise<T>;
+  hasContext(): boolean;
+}
+
+// AsyncLocalStorage 기반 어댑터
+class AsyncLocalStorageClsAdapter implements ClsAdapter {
+  constructor(storage: AsyncLocalStorage<TraceContext>);
+  // 메서드 구현
+}
+
+// nestjs-cls 기반 어댑터
+class NestjsClsAdapter implements ClsAdapter {
+  constructor(clsService: ClsService);
+  // 메서드 구현
+}
+```
+
+### 6. LoggerAdapter
 
 로거 어댑터 인터페이스.
 
