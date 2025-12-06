@@ -1,4 +1,4 @@
-import type { InjectionToken, ModuleMetadata, OptionalFactoryDependency } from '@nestjs/common';
+import type {InjectionToken, ModuleMetadata, OptionalFactoryDependency} from '@nestjs/common';
 
 /**
  * TraceModule 옵션

@@ -1,5 +1,14 @@
 # @m16khb/nestjs-traceable
 
+## 1.2.1
+
+### Patch Changes
+
+- 코드 포맷팅 일관성 개선
+  - Linter/Prettier 자동 포맷팅 적용
+  - import/export 문의 중괄호 내부 공백 제거
+  - 코드 스타일 통일
+
 ## 1.2.0
 
 ### Minor Changes

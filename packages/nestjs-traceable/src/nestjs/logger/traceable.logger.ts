@@ -1,7 +1,7 @@
-import { Inject, Injectable, LoggerService as NestLoggerService, Optional } from '@nestjs/common';
-import { WINSTON_MODULE_PROVIDER } from 'nest-winston';
-import { Logger } from 'winston';
-import { formatErrorForLogging } from '../utils/error.util';
+import {Inject, Injectable, LoggerService as NestLoggerService, Optional} from '@nestjs/common';
+import {WINSTON_MODULE_PROVIDER} from 'nest-winston';
+import {Logger} from 'winston';
+import {formatErrorForLogging} from '../utils/error.util';
 
 /**
  * 로그 레벨 정의
@@ -221,7 +221,7 @@ export class TraceableLogger implements NestLoggerService {
    */
   slowQuery(message: string, durationMs: number, meta?: LogMeta): void {
     if (!this.winstonLogger) {
-      this.fallbackLog('warn', `[SlowQuery] ${message}`, { durationMs, slow: true, ...meta });
+      this.fallbackLog('warn', `[SlowQuery] ${message}`, {durationMs, slow: true, ...meta});
       return;
     }
     this.winstonLogger.warn({

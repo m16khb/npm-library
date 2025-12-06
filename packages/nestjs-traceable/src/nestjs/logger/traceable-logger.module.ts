@@ -1,10 +1,10 @@
-import { DynamicModule, Global, Module, Type, InjectionToken } from '@nestjs/common';
-import { WinstonModule } from 'nest-winston';
-import { ClsModule, ClsService } from 'nestjs-cls';
+import {DynamicModule, Global, Module, Type, InjectionToken} from '@nestjs/common';
+import {WinstonModule} from 'nest-winston';
+import {ClsModule, ClsService} from 'nestjs-cls';
 import * as winston from 'winston';
 import dayjs from 'dayjs';
-import { TraceableLogger, LogLevel } from './traceable.logger';
-import { TRACE_ID_KEY } from '../services/trace-context.service';
+import {TraceableLogger, LogLevel} from './traceable.logger';
+import {TRACE_ID_KEY} from '../services/trace-context.service';
 
 /**
  * 커스텀 로그 레벨 (TypeORM QUERY 포함)
@@ -68,7 +68,9 @@ export interface TraceableLoggerModuleAsyncOptions {
   /** Factory 함수에 주입할 프로바이더 */
   inject?: InjectionToken[];
   /** 설정 Factory 함수 */
-  useFactory: (...args: unknown[]) => TraceableLoggerModuleOptions | Promise<TraceableLoggerModuleOptions>;
+  useFactory: (
+    ...args: unknown[]
+  ) => TraceableLoggerModuleOptions | Promise<TraceableLoggerModuleOptions>;
   /** 전역 모듈 여부 (기본: true) */
   isGlobal?: boolean;
 }
@@ -155,7 +157,7 @@ function createWinstonFormat(
         return info;
       })(),
       // ISO8601 형식 + 밀리초
-      winston.format.timestamp({ format: 'YYYY-MM-DDTHH:mm:ss.SSSZ' }),
+      winston.format.timestamp({format: 'YYYY-MM-DDTHH:mm:ss.SSSZ'}),
       winston.format.json(),
     );
   }

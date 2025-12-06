@@ -1,8 +1,8 @@
-import { ClsService } from 'nestjs-cls';
-import { Queue, JobsOptions } from 'bullmq';
-import { randomUUID } from 'crypto';
-import { TRACE_ID_KEY } from '../services/trace-context.service';
-import type { TraceableJobData } from './traceable-processor.abstract';
+import {ClsService} from 'nestjs-cls';
+import {Queue, JobsOptions} from 'bullmq';
+import {randomUUID} from 'crypto';
+import {TRACE_ID_KEY} from '../services/trace-context.service';
+import type {TraceableJobData} from './traceable-processor.abstract';
 
 /**
  * TraceableQueueService - CLS에서 traceId를 자동으로 추출하여 Job 데이터에 주입하는 추상 큐 서비스
@@ -76,13 +76,13 @@ export abstract class TraceableQueueService<TJobData extends object> {
    */
   protected async addBulkJobs(
     name: string,
-    jobs: Array<{ data: TJobData; opts?: JobsOptions }>,
+    jobs: Array<{data: TJobData; opts?: JobsOptions}>,
   ): Promise<string[]> {
     const traceId = this.getCurrentTraceId();
-    const bulkJobs = jobs.map((job) => {
-      const bulkJob: { name: string; data: TJobData & TraceableJobData; opts?: JobsOptions } = {
+    const bulkJobs = jobs.map(job => {
+      const bulkJob: {name: string; data: TJobData & TraceableJobData; opts?: JobsOptions} = {
         name,
-        data: { ...job.data, traceId } as TJobData & TraceableJobData,
+        data: {...job.data, traceId} as TJobData & TraceableJobData,
       };
       if (job.opts) {
         bulkJob.opts = job.opts;
@@ -91,7 +91,7 @@ export abstract class TraceableQueueService<TJobData extends object> {
     });
 
     const results = await this.queue.addBulk(bulkJobs);
-    return results.map((job) => job.id ?? '');
+    return results.map(job => job.id ?? '');
   }
 
   /**

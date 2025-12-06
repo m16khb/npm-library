@@ -1,8 +1,8 @@
-import { Injectable, NestInterceptor, ExecutionContext, CallHandler } from '@nestjs/common';
-import { ClsService } from 'nestjs-cls';
-import { Observable } from 'rxjs';
-import { randomUUID } from 'crypto';
-import { TRACE_ID_KEY } from '../services/trace-context.service';
+import {Injectable, NestInterceptor, ExecutionContext, CallHandler} from '@nestjs/common';
+import {ClsService} from 'nestjs-cls';
+import {Observable} from 'rxjs';
+import {randomUUID} from 'crypto';
+import {TRACE_ID_KEY} from '../services/trace-context.service';
 
 /**
  * gRPC Metadata 인터페이스 (타입 호환용)
@@ -69,7 +69,7 @@ export class TraceGrpcInterceptor implements NestInterceptor {
     const traceId = this.extractTraceId(metadata);
 
     // CLS 컨텍스트에서 실행
-    return new Observable((subscriber) => {
+    return new Observable(subscriber => {
       this.cls.run(() => {
         this.cls.set(TRACE_ID_KEY, traceId);
 
@@ -79,8 +79,8 @@ export class TraceGrpcInterceptor implements NestInterceptor {
         }
 
         next.handle().subscribe({
-          next: (value) => subscriber.next(value),
-          error: (err) => subscriber.error(err),
+          next: value => subscriber.next(value),
+          error: err => subscriber.error(err),
           complete: () => subscriber.complete(),
         });
       });

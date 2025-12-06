@@ -1,6 +1,6 @@
-import { ClsService } from 'nestjs-cls';
-import { randomUUID } from 'crypto';
-import { TRACE_ID_KEY } from '../services/trace-context.service';
+import {ClsService} from 'nestjs-cls';
+import {randomUUID} from 'crypto';
+import {TRACE_ID_KEY} from '../services/trace-context.service';
 
 /**
  * TraceableCronService - CLS 트레이스 컨텍스트를 자동으로 설정하는 크론 서비스 추상 클래스

@@ -1,6 +1,6 @@
 {
   "name": "@m16khb/nestjs-traceable",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "NestJS용 Traceable 데코레이터 - 메서드 실행 추적 및 로깅 라이브러리",
   "main": "./dist/index.js",
   "module": "./dist/index.js",

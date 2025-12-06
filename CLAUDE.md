@@ -36,12 +36,13 @@ npm-library/
 
 ## 하위 모듈
 
-| 모듈                                                            | 설명                                   |
-| --------------------------------------------------------------- | -------------------------------------- |
-| [traceable](packages/traceable/CLAUDE.md)                       | Traceable 라이브러리                   |
-| [nestjs-async-utils](packages/nestjs-async-utils/README.md)     | NestJS 비동기 유틸리티 데코레이터      |
+| 모듈                                                        | 설명                              |
+| ----------------------------------------------------------- | --------------------------------- |
+| [traceable](packages/traceable/CLAUDE.md)                   | Traceable 라이브러리              |
+| [nestjs-async-utils](packages/nestjs-async-utils/README.md) | NestJS 비동기 유틸리티 데코레이터 |
 
 ## Active Technologies
+
 - TypeScript 5.7+ (ES2022, strict mode) + @nestjs/common ^10.0.0 || ^11.0.0, rxjs ^7.0.0 (peerDependencies) (003-nestjs-traceable)
 - N/A (in-memory AsyncLocalStorage only) (003-nestjs-traceable)
 

@@ -1,9 +1,6 @@
-import { SetMetadata, UseInterceptors } from '@nestjs/common';
-import { TraceInterceptor } from '../interceptors/trace.interceptor';
-import {
-  TRACE_METADATA_KEY,
-  TRACEABLE_METADATA_KEY,
-} from '../constants';
+import {SetMetadata, UseInterceptors} from '@nestjs/common';
+import {TraceInterceptor} from '../interceptors/trace.interceptor';
+import {TRACE_METADATA_KEY, TRACEABLE_METADATA_KEY} from '../constants';
 
 /**
  * 메서드 실행을 추적하는 데코레이터

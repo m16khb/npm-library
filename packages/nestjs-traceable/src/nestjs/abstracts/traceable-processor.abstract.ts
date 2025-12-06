@@ -1,8 +1,8 @@
-import { WorkerHost } from '@nestjs/bullmq';
-import { ClsService } from 'nestjs-cls';
-import { Job } from 'bullmq';
-import { randomUUID } from 'crypto';
-import { TRACE_ID_KEY } from '../services/trace-context.service';
+import {WorkerHost} from '@nestjs/bullmq';
+import {ClsService} from 'nestjs-cls';
+import {Job} from 'bullmq';
+import {randomUUID} from 'crypto';
+import {TRACE_ID_KEY} from '../services/trace-context.service';
 
 /**
  * traceId를 포함할 수 있는 Job 데이터 인터페이스

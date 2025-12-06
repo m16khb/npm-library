@@ -1,19 +1,9 @@
-import {
-  DynamicModule,
-  Global,
-  Module,
-} from '@nestjs/common';
-import { ClsModule } from 'nestjs-cls';
-import { randomUUID } from 'crypto';
-import {
-  DEFAULT_TRACE_HEADER,
-  TRACE_OPTIONS,
-} from './constants';
-import {
-  TraceModuleOptions,
-  TraceModuleAsyncOptions,
-} from './interfaces';
-import { TraceContextService, TRACE_ID_KEY } from './services/trace-context.service';
+import {DynamicModule, Global, Module} from '@nestjs/common';
+import {ClsModule} from 'nestjs-cls';
+import {randomUUID} from 'crypto';
+import {DEFAULT_TRACE_HEADER, TRACE_OPTIONS} from './constants';
+import {TraceModuleOptions, TraceModuleAsyncOptions} from './interfaces';
+import {TraceContextService, TRACE_ID_KEY} from './services/trace-context.service';
 
 /**
  * NestJS 추적 모듈
@@ -53,7 +43,7 @@ export class TraceModule {
           middleware: {
             mount: true,
             generateId: true,
-            idGenerator: (req) => {
+            idGenerator: req => {
               // 헤더에서 traceId 추출, 없으면 새로 생성
               const headerKey = headerName.toLowerCase();
               return (req.headers[headerKey] as string) ?? randomUUID();
@@ -81,11 +71,7 @@ export class TraceModule {
         },
         TraceContextService,
       ],
-      exports: [
-        TRACE_OPTIONS,
-        TraceContextService,
-        ClsModule,
-      ],
+      exports: [TRACE_OPTIONS, TraceContextService, ClsModule],
     };
   }
 
@@ -111,10 +97,7 @@ export class TraceModule {
         },
         TraceContextService,
       ],
-      exports: [
-        TRACE_OPTIONS,
-        TraceContextService,
-      ],
+      exports: [TRACE_OPTIONS, TraceContextService],
     };
   }
 
@@ -134,10 +117,7 @@ export class TraceModule {
         },
         TraceContextService,
       ],
-      exports: [
-        TRACE_OPTIONS,
-        TraceContextService,
-      ],
+      exports: [TRACE_OPTIONS, TraceContextService],
     };
   }
 }

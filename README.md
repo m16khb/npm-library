@@ -11,10 +11,10 @@ npm library collection monorepo managed with pnpm workspace and Turborepo.
 
 ## Packages
 
-| Package | Version | Description |
-|---------|---------|-------------|
+| Package                                                     | Version                                                                                                                         | Description                                                                         |
+| ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
 | [@m16khb/nestjs-async-utils](./packages/nestjs-async-utils) | [![npm](https://img.shields.io/npm/v/@m16khb/nestjs-async-utils.svg)](https://www.npmjs.com/package/@m16khb/nestjs-async-utils) | NestJS async operation control decorators (@Retryable, @Timeout, @ConcurrencyLimit) |
-| [@m16khb/nestjs-traceable](./packages/nestjs-traceable) | [![npm](https://img.shields.io/npm/v/@m16khb/nestjs-traceable.svg)](https://www.npmjs.com/package/@m16khb/nestjs-traceable) | TraceId-based distributed tracing library for NestJS |
+| [@m16khb/nestjs-traceable](./packages/nestjs-traceable)     | [![npm](https://img.shields.io/npm/v/@m16khb/nestjs-traceable.svg)](https://www.npmjs.com/package/@m16khb/nestjs-traceable)     | TraceId-based distributed tracing library for NestJS                                |
 
 ## Tech Stack
 

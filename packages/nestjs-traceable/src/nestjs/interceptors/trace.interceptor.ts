@@ -1,18 +1,9 @@
-import {
-  Injectable,
-  NestInterceptor,
-  ExecutionContext,
-  CallHandler,
-  Logger,
-} from '@nestjs/common';
-import { Observable, throwError } from 'rxjs';
-import { catchError, tap } from 'rxjs/operators';
-import { Reflector } from '@nestjs/core';
-import {
-  TRACE_METADATA_KEY,
-  TRACEABLE_METADATA_KEY,
-} from '../constants';
-import { TraceContextService } from '../services/trace-context.service';
+import {Injectable, NestInterceptor, ExecutionContext, CallHandler, Logger} from '@nestjs/common';
+import {Observable, throwError} from 'rxjs';
+import {catchError, tap} from 'rxjs/operators';
+import {Reflector} from '@nestjs/core';
+import {TRACE_METADATA_KEY, TRACEABLE_METADATA_KEY} from '../constants';
+import {TraceContextService} from '../services/trace-context.service';
 
 /**
  * 메서드 실행 추적 인터셉터
@@ -51,7 +42,7 @@ export class TraceInterceptor implements NestInterceptor {
         const duration = Date.now() - startTime;
         this.logger.debug(`[${traceId}] ${operationName} completed (${duration}ms)`);
       }),
-      catchError((error) => {
+      catchError(error => {
         const duration = Date.now() - startTime;
         this.logger.warn(`[${traceId}] ${operationName} failed (${duration}ms): ${error.message}`);
         return throwError(() => error);
@@ -64,20 +55,14 @@ export class TraceInterceptor implements NestInterceptor {
    */
   private getOperationName(context: ExecutionContext): string {
     // 메서드의 @Trace 메타데이터 확인
-    const operationName = this.reflector.get<string>(
-      TRACE_METADATA_KEY,
-      context.getHandler(),
-    );
+    const operationName = this.reflector.get<string>(TRACE_METADATA_KEY, context.getHandler());
 
     if (operationName) {
       return operationName;
     }
 
     // @Traceable 클래스인지 확인
-    const isTraceable = this.reflector.get<boolean>(
-      TRACEABLE_METADATA_KEY,
-      context.getClass(),
-    );
+    const isTraceable = this.reflector.get<boolean>(TRACEABLE_METADATA_KEY, context.getClass());
 
     if (isTraceable) {
       return context.getHandler().name || 'unknown';

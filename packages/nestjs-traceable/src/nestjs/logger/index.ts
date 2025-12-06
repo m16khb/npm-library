@@ -1,8 +1,4 @@
-export {
-  TraceableLogger,
-  type LogLevel,
-  type LogMeta,
-} from './traceable.logger';
+export {TraceableLogger, type LogLevel, type LogMeta} from './traceable.logger';
 
 export {
   TraceableLoggerModule,

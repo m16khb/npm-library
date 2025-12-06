@@ -123,9 +123,7 @@ export function getFullErrorDetails(error: unknown): {
   }
 
   const rootCauseDetails =
-    rootCause instanceof Error
-      ? { message: rootCause.message, name: rootCause.name }
-      : undefined;
+    rootCause instanceof Error ? {message: rootCause.message, name: rootCause.name} : undefined;
 
   return {
     ...basicDetails,

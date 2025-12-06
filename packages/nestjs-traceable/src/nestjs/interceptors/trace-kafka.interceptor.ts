@@ -1,8 +1,8 @@
-import { Injectable, NestInterceptor, ExecutionContext, CallHandler } from '@nestjs/common';
-import { ClsService } from 'nestjs-cls';
-import { Observable } from 'rxjs';
-import { randomUUID } from 'crypto';
-import { TRACE_ID_KEY } from '../services/trace-context.service';
+import {Injectable, NestInterceptor, ExecutionContext, CallHandler} from '@nestjs/common';
+import {ClsService} from 'nestjs-cls';
+import {Observable} from 'rxjs';
+import {randomUUID} from 'crypto';
+import {TRACE_ID_KEY} from '../services/trace-context.service';
 
 /**
  * Kafka 메시지 헤더 인터페이스 (타입 호환용)
@@ -94,13 +94,13 @@ export class TraceKafkaInterceptor implements NestInterceptor {
     const traceId = this.extractTraceId(kafkaContext);
 
     // CLS 컨텍스트에서 실행
-    return new Observable((subscriber) => {
+    return new Observable(subscriber => {
       this.cls.run(() => {
         this.cls.set(TRACE_ID_KEY, traceId);
 
         next.handle().subscribe({
-          next: (value) => subscriber.next(value),
-          error: (err) => subscriber.error(err),
+          next: value => subscriber.next(value),
+          error: err => subscriber.error(err),
           complete: () => subscriber.complete(),
         });
       });
@@ -174,10 +174,7 @@ export class TraceKafkaInterceptor implements NestInterceptor {
  * }
  * ```
  */
-export function createKafkaTraceHeaders(
-  cls: ClsService,
-  headerName = 'x-trace-id',
-): KafkaHeaders {
+export function createKafkaTraceHeaders(cls: ClsService, headerName = 'x-trace-id'): KafkaHeaders {
   let traceId: string;
 
   try {
@@ -190,5 +187,5 @@ export function createKafkaTraceHeaders(
     traceId = randomUUID();
   }
 
-  return { [headerName]: traceId };
+  return {[headerName]: traceId};
 }

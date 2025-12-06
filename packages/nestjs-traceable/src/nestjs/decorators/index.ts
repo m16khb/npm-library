@@ -1,1 +1,1 @@
-export { Trace, Traceable } from './trace.decorator';
+export {Trace, Traceable} from './trace.decorator';
