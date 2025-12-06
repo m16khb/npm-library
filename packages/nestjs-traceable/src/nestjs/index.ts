@@ -13,7 +13,7 @@ export {
 } from './abstracts';
 
 // Decorators (Utility)
-export {Trace, Traceable} from './decorators';
+export {Trace, Traceable, TracedCron} from './decorators';
 
 // Interceptors
 export {
