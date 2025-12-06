@@ -141,7 +141,21 @@ function createWinstonFormat(
         const reset = COLORS.reset;
         const yellow = COLORS.yellow;
 
-        return `${levelColor}[${appName}]${reset} ${pid}  - ${timestamp}     ${levelColor}${levelName.padEnd(7)}${reset} ${yellow}[${context}]${reset} ${levelColor}${message}${reset}`;
+        // 기본 필드를 제외한 meta 추출
+        const excludeKeys = new Set(['level', 'message', 'context', 'splat']);
+        const meta: Record<string, unknown> = {};
+        for (const key of Object.keys(info)) {
+          if (!excludeKeys.has(key)) {
+            meta[key] = info[key];
+          }
+        }
+
+        // meta가 있으면 메시지 뒤에 한 줄로 표시 (공백 포함 포맷)
+        const formatMeta = (obj: Record<string, unknown>) =>
+          JSON.stringify(obj, null, 1).replace(/\n\s*/g, ' ');
+        const metaSuffix = Object.keys(meta).length > 0 ? ` - ${formatMeta(meta)}` : '';
+
+        return `${levelColor}[${appName}]${reset} ${pid}  - ${timestamp}     ${levelColor}${levelName.padEnd(7)}${reset} ${yellow}[${context}]${reset} ${levelColor}${message}${metaSuffix}${reset}`;
       }),
     );
   } else {
