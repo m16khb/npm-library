@@ -1,8 +1,8 @@
 {
   "name": "@m16khb/nestjs-traceable",
-  "version": "1.2.1",
+  "version": "1.2.2",
   "description": "NestJS용 Traceable 데코레이터 - 메서드 실행 추적 및 로깅 라이브러리",
-  "main": "./dist/index.js",
+  "main": "./dist/index.cjs",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "type": "module",
@@ -10,23 +10,8 @@
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
-    },
-    "./core": {
-      "types": "./dist/core/index.d.ts",
-      "import": "./dist/core/index.js"
-    },
-    "./decorators": {
-      "types": "./dist/decorators/index.d.ts",
-      "import": "./dist/decorators/index.js"
-    },
-    "./interceptors": {
-      "types": "./dist/interceptors/index.d.ts",
-      "import": "./dist/interceptors/index.js"
-    },
-    "./interfaces": {
-      "types": "./dist/interfaces/index.d.ts",
-      "import": "./dist/interfaces/index.js"
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
     },
     "./package.json": "./package.json"
   },

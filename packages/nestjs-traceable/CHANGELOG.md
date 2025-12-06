@@ -1,5 +1,11 @@
 # @m16khb/nestjs-traceable
 
+## 1.2.2
+
+### Patch Changes
+
+- fix: CommonJS 호환성 개선 - exports 필드에 require 조건 추가
+
 ## 1.2.1
 
 ### Patch Changes
