@@ -1,7 +1,6 @@
-import {ClsService} from 'nestjs-cls';
 import {Queue, JobsOptions} from 'bullmq';
 import {randomUUID} from 'crypto';
-import {TRACE_ID_KEY} from '../services/trace-context.service';
+import {TraceContextService} from '../services/trace-context.service';
 import type {TraceableJobData} from './traceable-processor.abstract';
 
 /**
@@ -16,9 +15,9 @@ import type {TraceableJobData} from './traceable-processor.abstract';
  * export class PaymentQueueService extends TraceableQueueService<PaymentJobData> {
  *   constructor(
  *     @InjectQueue('payment') queue: Queue,
- *     cls: ClsService,
+ *     traceContext: TraceContextService,
  *   ) {
- *     super(queue, cls);
+ *     super(queue, traceContext);
  *   }
  *
  *   async addPaymentJob(data: PaymentJobData): Promise<string> {
@@ -43,9 +42,13 @@ import type {TraceableJobData} from './traceable-processor.abstract';
  * @typeParam TJobData - Job 데이터 타입 (traceId는 자동 추가됨)
  */
 export abstract class TraceableQueueService<TJobData extends object> {
+  /**
+   * @param queue - BullMQ Queue 인스턴스
+   * @param traceContext - TraceContextService 인스턴스 (필수)
+   */
   constructor(
     protected readonly queue: Queue,
-    protected readonly cls: ClsService,
+    protected readonly traceContext: TraceContextService,
   ) {}
 
   /**
@@ -111,15 +114,7 @@ export abstract class TraceableQueueService<TJobData extends object> {
    * 현재 CLS 컨텍스트에서 traceId를 가져오거나 새로 생성
    */
   private getCurrentTraceId(): string {
-    try {
-      if (this.cls.isActive()) {
-        const traceId = this.cls.get<string>(TRACE_ID_KEY);
-        if (traceId) return traceId;
-      }
-    } catch {
-      // CLS 에러 시 새 traceId 생성
-    }
-    return randomUUID();
+    return this.traceContext.getTraceId() ?? randomUUID();
   }
 
   /**

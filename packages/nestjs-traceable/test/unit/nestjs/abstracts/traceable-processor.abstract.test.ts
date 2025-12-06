@@ -1,11 +1,10 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { ClsService } from 'nestjs-cls';
-import { Job } from 'bullmq';
+import {describe, it, expect, beforeEach, vi} from 'vitest';
+import {Job} from 'bullmq';
 import {
   TraceableProcessor,
   TraceableJobData,
 } from '../../../../src/nestjs/abstracts/traceable-processor.abstract';
-import { TRACE_ID_KEY } from '../../../../src/nestjs/services/trace-context.service';
+import {TraceContextService} from '../../../../src/nestjs/services/trace-context.service';
 
 interface TestJobData extends TraceableJobData {
   userId: number;
@@ -20,10 +19,10 @@ interface TestResult {
 // 테스트용 구체 클래스
 class TestProcessor extends TraceableProcessor<TestJobData, TestResult> {
   public executedJobs: Job<TestJobData>[] = [];
-  public mockResult: TestResult = { success: true, orderId: 'order-123' };
+  public mockResult: TestResult = {success: true, orderId: 'order-123'};
 
-  constructor(cls: ClsService) {
-    super(cls);
+  constructor(traceContext: TraceContextService) {
+    super(traceContext);
   }
 
   protected async executeJob(job: Job<TestJobData>): Promise<TestResult> {
@@ -39,52 +38,52 @@ class TestProcessor extends TraceableProcessor<TestJobData, TestResult> {
 
 describe('TraceableProcessor', () => {
   let processor: TestProcessor;
-  let mockClsService: ClsService;
+  let mockTraceContext: TraceContextService;
 
   beforeEach(() => {
     vi.clearAllMocks();
 
-    mockClsService = {
-      get: vi.fn(),
+    mockTraceContext = {
+      getTraceId: vi.fn(),
+      setTraceId: vi.fn(),
+      runAsync: vi.fn((fn: () => Promise<unknown>) => fn()),
       set: vi.fn(),
-      isActive: vi.fn().mockReturnValue(true),
-      run: vi.fn((fn: () => unknown) => fn()),
-    } as unknown as ClsService;
+      get: vi.fn(),
+    } as unknown as TraceContextService;
 
-    processor = new TestProcessor(mockClsService);
+    processor = new TestProcessor(mockTraceContext);
   });
 
   describe('process', () => {
     it('Job의 traceId를 CLS에 설정하고 executeJob을 호출한다', async () => {
       const job = {
-        data: { userId: 123, amount: 1000, traceId: 'job-trace-id' },
+        data: {userId: 123, amount: 1000, traceId: 'job-trace-id'},
         id: 'job-1',
       } as Job<TestJobData>;
 
       const result = await processor.process(job);
 
-      expect(result).toEqual({ success: true, orderId: 'order-123' });
-      expect(mockClsService.run).toHaveBeenCalled();
-      expect(mockClsService.set).toHaveBeenCalledWith(TRACE_ID_KEY, 'job-trace-id');
+      expect(result).toEqual({success: true, orderId: 'order-123'});
+      expect(mockTraceContext.runAsync).toHaveBeenCalledWith(expect.any(Function), 'job-trace-id');
       expect(processor.executedJobs).toContain(job);
     });
 
-    it('Job에 traceId가 없으면 새로 생성한다', async () => {
+    it('Job에 traceId가 없으면 undefined를 전달한다', async () => {
       const job = {
-        data: { userId: 123, amount: 1000 },
+        data: {userId: 123, amount: 1000},
         id: 'job-1',
       } as Job<TestJobData>;
 
       await processor.process(job);
 
-      expect(mockClsService.set).toHaveBeenCalledWith(TRACE_ID_KEY, expect.stringMatching(/^[0-9a-f-]{36}$/));
+      expect(mockTraceContext.runAsync).toHaveBeenCalledWith(expect.any(Function), undefined);
     });
 
     it('executeJob의 결과를 반환한다', async () => {
-      const expectedResult = { success: false, orderId: 'order-456' };
+      const expectedResult = {success: false, orderId: 'order-456'};
       processor.mockResult = expectedResult;
       const job = {
-        data: { userId: 123, amount: 1000, traceId: 'test-trace' },
+        data: {userId: 123, amount: 1000, traceId: 'test-trace'},
       } as Job<TestJobData>;
 
       const result = await processor.process(job);
@@ -94,8 +93,8 @@ describe('TraceableProcessor', () => {
 
     it('executeJob에서 에러가 발생하면 전파한다', async () => {
       class ErrorProcessor extends TraceableProcessor<TestJobData, TestResult> {
-        constructor(cls: ClsService) {
-          super(cls);
+        constructor(traceContext: TraceContextService) {
+          super(traceContext);
         }
 
         protected async executeJob(): Promise<TestResult> {
@@ -103,9 +102,9 @@ describe('TraceableProcessor', () => {
         }
       }
 
-      const errorProcessor = new ErrorProcessor(mockClsService);
+      const errorProcessor = new ErrorProcessor(mockTraceContext);
       const job = {
-        data: { userId: 123, amount: 1000, traceId: 'test-trace' },
+        data: {userId: 123, amount: 1000, traceId: 'test-trace'},
       } as Job<TestJobData>;
 
       await expect(errorProcessor.process(job)).rejects.toThrow('Job failed');
@@ -113,18 +112,18 @@ describe('TraceableProcessor', () => {
   });
 
   describe('getTraceId', () => {
-    it('CLS에서 traceId를 가져온다', () => {
+    it('TraceContextService에서 traceId를 가져온다', () => {
       const expectedTraceId = 'test-trace-123';
-      vi.mocked(mockClsService.get).mockReturnValue(expectedTraceId);
+      vi.mocked(mockTraceContext.getTraceId).mockReturnValue(expectedTraceId);
 
       const result = processor.testGetTraceId();
 
       expect(result).toBe(expectedTraceId);
-      expect(mockClsService.get).toHaveBeenCalledWith(TRACE_ID_KEY);
+      expect(mockTraceContext.getTraceId).toHaveBeenCalled();
     });
 
-    it('CLS가 비활성화되면 undefined 반환', () => {
-      vi.mocked(mockClsService.isActive).mockReturnValue(false);
+    it('traceId가 없으면 undefined 반환', () => {
+      vi.mocked(mockTraceContext.getTraceId).mockReturnValue(undefined);
 
       const result = processor.testGetTraceId();
 

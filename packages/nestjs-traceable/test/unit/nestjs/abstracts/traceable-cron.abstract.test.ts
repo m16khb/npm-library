@@ -1,12 +1,11 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { ClsService } from 'nestjs-cls';
-import { TraceableCronService } from '../../../../src/nestjs/abstracts/traceable-cron.abstract';
-import { TRACE_ID_KEY } from '../../../../src/nestjs/services/trace-context.service';
+import {describe, it, expect, beforeEach, vi} from 'vitest';
+import {TraceableCronService} from '../../../../src/nestjs/abstracts/traceable-cron.abstract';
+import {TraceContextService} from '../../../../src/nestjs/services/trace-context.service';
 
 // 테스트용 구체 클래스
 class TestCronService extends TraceableCronService {
-  constructor(cls: ClsService) {
-    super(cls);
+  constructor(traceContext: TraceContextService) {
+    super(traceContext);
   }
 
   // protected 메서드를 테스트용으로 노출
@@ -17,33 +16,42 @@ class TestCronService extends TraceableCronService {
   public testGetTraceId() {
     return this.getTraceId();
   }
+
+  public testSet<T>(key: string, value: T) {
+    return this.set(key, value);
+  }
+
+  public testGet<T>(key: string) {
+    return this.get<T>(key);
+  }
 }
 
 describe('TraceableCronService', () => {
   let service: TestCronService;
-  let mockClsService: ClsService;
+  let mockTraceContext: TraceContextService;
 
   beforeEach(() => {
     vi.clearAllMocks();
 
-    mockClsService = {
-      get: vi.fn(),
+    mockTraceContext = {
+      getTraceId: vi.fn(),
+      setTraceId: vi.fn(),
+      runAsync: vi.fn((fn: () => Promise<unknown>) => fn()),
       set: vi.fn(),
-      isActive: vi.fn().mockReturnValue(true),
-      run: vi.fn((fn: () => unknown) => fn()),
-    } as unknown as ClsService;
+      get: vi.fn(),
+    } as unknown as TraceContextService;
 
-    service = new TestCronService(mockClsService);
+    service = new TestCronService(mockTraceContext);
   });
 
   describe('constructor', () => {
-    it('ClsService가 없으면 에러를 던진다', () => {
-      expect(() => new TestCronService(null as unknown as ClsService)).toThrow(
-        'TraceableCronService requires ClsService to be injected',
+    it('TraceContextService가 없으면 에러를 던진다', () => {
+      expect(() => new TestCronService(null as unknown as TraceContextService)).toThrow(
+        'TraceableCronService requires TraceContextService to be injected',
       );
     });
 
-    it('ClsService가 있으면 정상 생성된다', () => {
+    it('TraceContextService가 있으면 정상 생성된다', () => {
       expect(service).toBeDefined();
     });
   });
@@ -55,8 +63,7 @@ describe('TraceableCronService', () => {
       const result = await service.testRunWithTrace(fn);
 
       expect(result).toBe('result');
-      expect(mockClsService.run).toHaveBeenCalled();
-      expect(mockClsService.set).toHaveBeenCalledWith(TRACE_ID_KEY, expect.any(String));
+      expect(mockTraceContext.runAsync).toHaveBeenCalledWith(fn, undefined);
     });
 
     it('제공된 traceId를 사용한다', async () => {
@@ -65,45 +72,44 @@ describe('TraceableCronService', () => {
 
       await service.testRunWithTrace(fn, traceId);
 
-      expect(mockClsService.set).toHaveBeenCalledWith(TRACE_ID_KEY, traceId);
-    });
-
-    it('traceId 미제공 시 UUID를 생성한다', async () => {
-      const fn = vi.fn(async () => 'result');
-
-      await service.testRunWithTrace(fn);
-
-      expect(mockClsService.set).toHaveBeenCalledWith(TRACE_ID_KEY, expect.stringMatching(/^[0-9a-f-]{36}$/));
+      expect(mockTraceContext.runAsync).toHaveBeenCalledWith(fn, traceId);
     });
   });
 
   describe('getTraceId', () => {
-    it('CLS에서 traceId를 가져온다', () => {
+    it('TraceContextService에서 traceId를 가져온다', () => {
       const expectedTraceId = 'test-trace-123';
-      vi.mocked(mockClsService.get).mockReturnValue(expectedTraceId);
+      vi.mocked(mockTraceContext.getTraceId).mockReturnValue(expectedTraceId);
 
       const result = service.testGetTraceId();
 
       expect(result).toBe(expectedTraceId);
-      expect(mockClsService.get).toHaveBeenCalledWith(TRACE_ID_KEY);
+      expect(mockTraceContext.getTraceId).toHaveBeenCalled();
     });
 
-    it('CLS가 비활성화되면 undefined 반환', () => {
-      vi.mocked(mockClsService.isActive).mockReturnValue(false);
+    it('traceId가 없으면 undefined 반환', () => {
+      vi.mocked(mockTraceContext.getTraceId).mockReturnValue(undefined);
 
       const result = service.testGetTraceId();
 
       expect(result).toBeUndefined();
     });
+  });
 
-    it('에러 발생 시 undefined 반환', () => {
-      vi.mocked(mockClsService.isActive).mockImplementation(() => {
-        throw new Error('Test error');
-      });
+  describe('set/get', () => {
+    it('set은 TraceContextService.set을 호출한다', () => {
+      service.testSet('key', 'value');
 
-      const result = service.testGetTraceId();
+      expect(mockTraceContext.set).toHaveBeenCalledWith('key', 'value');
+    });
 
-      expect(result).toBeUndefined();
+    it('get은 TraceContextService.get을 호출한다', () => {
+      vi.mocked(mockTraceContext.get).mockReturnValue('value');
+
+      const result = service.testGet<string>('key');
+
+      expect(result).toBe('value');
+      expect(mockTraceContext.get).toHaveBeenCalledWith('key');
     });
   });
 });

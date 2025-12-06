@@ -3,28 +3,27 @@
  *
  * 대량의 동시 요청에서 traceId 격리 및 성능을 검증합니다.
  */
-import { describe, it, expect, beforeEach } from 'vitest';
-import { Test, TestingModule } from '@nestjs/testing';
-import { Injectable } from '@nestjs/common';
-import { ClsModule, ClsService } from 'nestjs-cls';
-import { randomUUID } from 'crypto';
+import {describe, it, expect, beforeEach} from 'vitest';
+import {Test, TestingModule} from '@nestjs/testing';
+import {Injectable} from '@nestjs/common';
+import {ClsModule, ClsService} from 'nestjs-cls';
 
-import { TraceModule } from '../../src/nestjs/trace.module';
-import { TraceContextService, TRACE_ID_KEY } from '../../src/nestjs/services/trace-context.service';
-import { TraceableCronService } from '../../src/nestjs/abstracts/traceable-cron.abstract';
+import {TraceModule} from '../../src/nestjs/trace.module';
+import {TraceContextService} from '../../src/nestjs/services/trace-context.service';
+import {TraceableCronService} from '../../src/nestjs/abstracts/traceable-cron.abstract';
 
 @Injectable()
 class ConcurrentTestService extends TraceableCronService {
-  constructor(cls: ClsService) {
-    super(cls);
+  constructor(traceContext: TraceContextService) {
+    super(traceContext);
   }
 
-  async simulateWork(workId: string, delayMs: number): Promise<{ workId: string; traceId: string }> {
+  async simulateWork(workId: string, delayMs: number): Promise<{workId: string; traceId: string}> {
     return this.runWithTrace(async () => {
       const traceId = this.getTraceId()!;
 
       // 비동기 작업 시뮬레이션
-      await new Promise((resolve) => setTimeout(resolve, delayMs));
+      await new Promise(resolve => setTimeout(resolve, delayMs));
 
       // 중간에 traceId 확인 (컨텍스트 유지 검증)
       const midTraceId = this.getTraceId();
@@ -32,7 +31,7 @@ class ConcurrentTestService extends TraceableCronService {
         throw new Error(`TraceId mismatch: ${traceId} !== ${midTraceId}`);
       }
 
-      return { workId, traceId };
+      return {workId, traceId};
     });
   }
 
@@ -58,10 +57,7 @@ describe('동시성 및 스트레스 테스트', () => {
 
   beforeEach(async () => {
     module = await Test.createTestingModule({
-      imports: [
-        ClsModule.forRoot({ global: true }),
-        TraceModule.forRoot(),
-      ],
+      imports: [ClsModule.forRoot({global: true}), TraceModule.forRoot()],
       providers: [ConcurrentTestService],
     }).compile();
 
@@ -74,24 +70,20 @@ describe('동시성 및 스트레스 테스트', () => {
     it('1000개의 동시 요청에서 모든 traceId가 고유하다', async () => {
       const count = 1000;
       const results = await Promise.all(
-        Array.from({ length: count }, (_, i) =>
-          concurrentService.simulateWork(`work-${i}`, Math.random() * 10),
-        ),
+        Array.from({length: count}, (_, i) => concurrentService.simulateWork(`work-${i}`, Math.random() * 10)),
       );
 
       // 모든 작업 완료 확인
       expect(results).toHaveLength(count);
 
       // 모든 traceId가 고유함
-      const traceIds = results.map((r) => r.traceId);
+      const traceIds = results.map(r => r.traceId);
       const uniqueTraceIds = new Set(traceIds);
       expect(uniqueTraceIds.size).toBe(count);
 
       // 모든 traceId가 UUID 형식
-      traceIds.forEach((traceId) => {
-        expect(traceId).toMatch(
-          /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
-        );
+      traceIds.forEach(traceId => {
+        expect(traceId).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
       });
     });
 
@@ -105,7 +97,7 @@ describe('동시성 및 스트레스 테스트', () => {
       expect(results).toHaveLength(delays.length);
 
       // 각 작업이 고유한 traceId를 가짐
-      const traceIds = results.map((r) => r.traceId);
+      const traceIds = results.map(r => r.traceId);
       const uniqueTraceIds = new Set(traceIds);
       expect(uniqueTraceIds.size).toBe(delays.length);
     });
@@ -132,7 +124,7 @@ describe('동시성 및 스트레스 테스트', () => {
       ]);
 
       // 각 호출 체인 내에서 traceId가 고유
-      results.forEach((traces) => {
+      results.forEach(traces => {
         expect(new Set(traces).size).toBe(6);
       });
 
@@ -179,9 +171,7 @@ describe('동시성 및 스트레스 테스트', () => {
 
   describe('에러 핸들링 및 복구 테스트', () => {
     it('일부 작업 실패 시에도 다른 작업의 traceId가 영향받지 않는다', async () => {
-      const workResults: Array<{ workId: string; traceId: string } | Error> = [];
-
-      const tasks = Array.from({ length: 10 }, async (_, i) => {
+      const tasks = Array.from({length: 10}, async (_, i) => {
         try {
           if (i === 5) {
             // 5번째 작업은 실패
@@ -197,17 +187,15 @@ describe('동시성 및 스트레스 테스트', () => {
       const results = await Promise.all(tasks);
 
       // 실패한 작업 확인
-      const errors = results.filter((r) => r instanceof Error);
+      const errors = results.filter(r => r instanceof Error);
       expect(errors).toHaveLength(1);
 
       // 성공한 작업들의 traceId 확인
-      const successResults = results.filter(
-        (r): r is { workId: string; traceId: string } => !(r instanceof Error),
-      );
+      const successResults = results.filter((r): r is {workId: string; traceId: string} => !(r instanceof Error));
       expect(successResults).toHaveLength(9);
 
       // 성공한 작업들의 traceId가 모두 고유함
-      const traceIds = successResults.map((r) => r.traceId);
+      const traceIds = successResults.map(r => r.traceId);
       expect(new Set(traceIds).size).toBe(9);
     });
   });

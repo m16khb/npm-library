@@ -3,25 +3,25 @@
  *
  * 다양한 진입점(HTTP, Cron, BullMQ)에서의 traceId 전파와 로그 연속성을 테스트합니다.
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { Test, TestingModule } from '@nestjs/testing';
-import { Injectable, Controller, Get, Module } from '@nestjs/common';
-import { ClsModule, ClsService } from 'nestjs-cls';
-import { randomUUID } from 'crypto';
+import {describe, it, expect, vi, beforeEach} from 'vitest';
+import {Test, TestingModule} from '@nestjs/testing';
+import {Injectable} from '@nestjs/common';
+import {ClsModule, ClsService} from 'nestjs-cls';
+import {randomUUID} from 'crypto';
 
-import { TraceModule } from '../../src/nestjs/trace.module';
-import { TraceContextService, TRACE_ID_KEY } from '../../src/nestjs/services/trace-context.service';
-import { TraceableCronService } from '../../src/nestjs/abstracts/traceable-cron.abstract';
-import { TraceableProcessor, TraceableJobData } from '../../src/nestjs/abstracts/traceable-processor.abstract';
-import { TraceableQueueService } from '../../src/nestjs/abstracts/traceable-queue.abstract';
+import {TraceModule} from '../../src/nestjs/trace.module';
+import {TraceContextService, TRACE_ID_KEY} from '../../src/nestjs/services/trace-context.service';
+import {TraceableCronService} from '../../src/nestjs/abstracts/traceable-cron.abstract';
+import {TraceableProcessor, TraceableJobData} from '../../src/nestjs/abstracts/traceable-processor.abstract';
+import {TraceableQueueService} from '../../src/nestjs/abstracts/traceable-queue.abstract';
 
 // 테스트용 서비스
 @Injectable()
 class TestLogService {
-  logs: Array<{ message: string; traceId?: string }> = [];
+  logs: Array<{message: string; traceId?: string}> = [];
 
   log(message: string, traceId?: string): void {
-    this.logs.push({ message, traceId });
+    this.logs.push({message, traceId});
   }
 
   clear(): void {
@@ -33,17 +33,17 @@ class TestLogService {
 @Injectable()
 class TestCronService extends TraceableCronService {
   constructor(
-    cls: ClsService,
+    traceContext: TraceContextService,
     private readonly logService: TestLogService,
   ) {
-    super(cls);
+    super(traceContext);
   }
 
   async runDailyReport(): Promise<string> {
     return this.runWithTrace(async () => {
       const traceId = this.getTraceId();
       this.logService.log('Daily report started', traceId);
-      await new Promise((resolve) => setTimeout(resolve, 10));
+      await new Promise(resolve => setTimeout(resolve, 10));
       this.logService.log('Daily report completed', traceId);
       return traceId!;
     });
@@ -66,21 +66,19 @@ interface TestJobData extends TraceableJobData {
 
 // 테스트용 Processor
 class TestProcessor extends TraceableProcessor<TestJobData, string> {
-  processedJobs: Array<{ taskId: string; traceId?: string }> = [];
+  processedJobs: Array<{taskId: string; traceId?: string}> = [];
 
   constructor(
-    cls: ClsService,
+    traceContext: TraceContextService,
     private readonly logService: TestLogService,
   ) {
-    super(cls);
+    super(traceContext);
   }
 
-  protected async executeJob(
-    job: { data: TestJobData; id?: string },
-  ): Promise<string> {
+  protected async executeJob(job: {data: TestJobData; id?: string}): Promise<string> {
     const traceId = this.getTraceId();
     this.logService.log(`Processing job ${job.data.taskId}`, traceId);
-    this.processedJobs.push({ taskId: job.data.taskId, traceId });
+    this.processedJobs.push({taskId: job.data.taskId, traceId});
     return `completed-${job.data.taskId}`;
   }
 
@@ -92,14 +90,14 @@ class TestProcessor extends TraceableProcessor<TestJobData, string> {
 // 테스트용 Queue 서비스
 @Injectable()
 class TestQueueService extends TraceableQueueService<TestJobData> {
-  enqueuedJobs: Array<{ name: string; data: unknown }> = [];
+  enqueuedJobs: Array<{name: string; data: unknown}> = [];
   private mockQueue: {
     add: ReturnType<typeof vi.fn>;
     addBulk: ReturnType<typeof vi.fn>;
     name: string;
   };
 
-  constructor(cls: ClsService) {
+  constructor(traceContext: TraceContextService) {
     // Mock queue
     const mockQueue = {
       name: 'test-queue',
@@ -110,41 +108,37 @@ class TestQueueService extends TraceableQueueService<TestJobData> {
           data,
         }),
       ),
-      addBulk: vi.fn().mockImplementation(
-        (jobs: Array<{ name: string; data: unknown }>) =>
-          Promise.resolve(
-            jobs.map((j) => ({
-              id: randomUUID(),
-              name: j.name,
-              data: j.data,
-            })),
-          ),
+      addBulk: vi.fn().mockImplementation((jobs: Array<{name: string; data: unknown}>) =>
+        Promise.resolve(
+          jobs.map(j => ({
+            id: randomUUID(),
+            name: j.name,
+            data: j.data,
+          })),
+        ),
       ),
     };
-    super(mockQueue as never, cls);
+    super(mockQueue as never, traceContext);
     this.mockQueue = mockQueue;
   }
 
-  async enqueueTask(
-    taskId: string,
-    payload: string,
-  ): Promise<{ id: string; data: TestJobData }> {
-    const dataWithTrace = this.addTraceId({ taskId, payload } as TestJobData);
+  async enqueueTask(taskId: string, payload: string): Promise<{id: string; data: TestJobData}> {
+    const dataWithTrace = this.addTraceId({taskId, payload} as TestJobData);
     const job = await this.mockQueue.add('process-task', dataWithTrace);
-    this.enqueuedJobs.push({ name: 'process-task', data: job.data });
+    this.enqueuedJobs.push({name: 'process-task', data: job.data});
     return job;
   }
 
   async enqueueBulkTasks(
-    tasks: Array<{ taskId: string; payload: string }>,
-  ): Promise<Array<{ id: string; data: TestJobData }>> {
+    tasks: Array<{taskId: string; payload: string}>,
+  ): Promise<Array<{id: string; data: TestJobData}>> {
     const jobIds = await this.addBulkJobs(
       'process-task',
-      tasks.map((t) => ({ data: t as TestJobData })),
+      tasks.map(t => ({data: t as TestJobData})),
     );
     return jobIds.map((id, i) => ({
       id,
-      data: { ...tasks[i], traceId: this.addTraceId(tasks[i] as TestJobData).traceId } as TestJobData,
+      data: {...tasks[i], traceId: this.addTraceId(tasks[i] as TestJobData).traceId} as TestJobData,
     }));
   }
 
@@ -166,15 +160,8 @@ describe('TraceFlow 통합 테스트', () => {
 
   beforeEach(async () => {
     module = await Test.createTestingModule({
-      imports: [
-        ClsModule.forRoot({ global: true }),
-        TraceModule.forRoot(),
-      ],
-      providers: [
-        TestLogService,
-        TestCronService,
-        TestQueueService,
-      ],
+      imports: [ClsModule.forRoot({global: true}), TraceModule.forRoot()],
+      providers: [TestLogService, TestCronService, TestQueueService],
     }).compile();
 
     traceContextService = module.get<TraceContextService>(TraceContextService);
@@ -182,7 +169,7 @@ describe('TraceFlow 통합 테스트', () => {
     cronService = module.get<TestCronService>(TestCronService);
     queueService = module.get<TestQueueService>(TestQueueService);
     cls = module.get<ClsService>(ClsService);
-    processor = new TestProcessor(cls, logService);
+    processor = new TestProcessor(traceContextService, logService);
 
     logService.clear();
     queueService.clear();
@@ -194,9 +181,7 @@ describe('TraceFlow 통합 테스트', () => {
       // 1. Cron 실행 - 새 traceId 생성
       const cronTraceId = await cronService.runDailyReport();
       expect(cronTraceId).toBeDefined();
-      expect(cronTraceId).toMatch(
-        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
-      );
+      expect(cronTraceId).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
 
       // 2. Cron 내에서 Queue에 작업 추가 (시뮬레이션)
       await cls.run(async () => {
@@ -224,9 +209,7 @@ describe('TraceFlow 통합 테스트', () => {
       expect(processor.processedJobs[0].traceId).toBe(cronTraceId);
 
       // 6. 모든 로그에서 동일한 traceId 확인
-      const logsWithCronTraceId = logService.logs.filter(
-        (l) => l.traceId === cronTraceId,
-      );
+      const logsWithCronTraceId = logService.logs.filter(l => l.traceId === cronTraceId);
       expect(logsWithCronTraceId.length).toBeGreaterThanOrEqual(3);
     });
   });
@@ -244,18 +227,14 @@ describe('TraceFlow 통합 테스트', () => {
       expect(uniqueTraceIds.size).toBe(3);
 
       // 각 traceId가 UUID 형식
-      results.forEach((traceId) => {
-        expect(traceId).toMatch(
-          /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
-        );
+      results.forEach(traceId => {
+        expect(traceId).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
       });
     });
 
     it('대량 동시 요청 (100개)에서도 컨텍스트 격리가 유지된다', async () => {
       const count = 100;
-      const results = await Promise.all(
-        Array.from({ length: count }, () => cronService.runDailyReport()),
-      );
+      const results = await Promise.all(Array.from({length: count}, () => cronService.runDailyReport()));
 
       const uniqueTraceIds = new Set(results);
       expect(uniqueTraceIds.size).toBe(count);
@@ -332,9 +311,7 @@ describe('TraceFlow 통합 테스트', () => {
         return traceId;
       });
 
-      expect(result).toMatch(
-        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
-      );
+      expect(result).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
     });
 
     it('run() 메서드로 특정 traceId로 컨텍스트 생성', () => {
@@ -348,13 +325,11 @@ describe('TraceFlow 통합 테스트', () => {
 
     it('runAsync() 메서드로 비동기 컨텍스트 생성', async () => {
       const result = await traceContextService.runAsync(async () => {
-        await new Promise((resolve) => setTimeout(resolve, 10));
+        await new Promise(resolve => setTimeout(resolve, 10));
         return traceContextService.getTraceId();
       });
 
-      expect(result).toMatch(
-        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
-      );
+      expect(result).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
     });
 
     it('isSameTrace()로 traceId 비교', () => {
@@ -371,8 +346,8 @@ describe('TraceFlow 통합 테스트', () => {
       class ErrorProcessor extends TraceableProcessor<TestJobData, string> {
         capturedTraceId?: string;
 
-        constructor(cls: ClsService) {
-          super(cls);
+        constructor(traceContext: TraceContextService) {
+          super(traceContext);
         }
 
         protected async executeJob(): Promise<string> {
@@ -381,13 +356,13 @@ describe('TraceFlow 통합 테스트', () => {
         }
       }
 
-      const errorProcessor = new ErrorProcessor(cls);
+      const errorProcessor = new ErrorProcessor(traceContextService);
       const testTraceId = 'error-trace-789';
 
       await expect(
         errorProcessor.process({
           id: 'error-job',
-          data: { taskId: 'error-task', payload: '', traceId: testTraceId },
+          data: {taskId: 'error-task', payload: '', traceId: testTraceId},
         } as never),
       ).rejects.toThrow('Job failed');
 
@@ -418,9 +393,7 @@ describe('TraceFlow 통합 테스트', () => {
       const job = await queueService.enqueueTask('no-context-task', 'payload');
 
       expect(job.data.traceId).toBeDefined();
-      expect(job.data.traceId).toMatch(
-        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
-      );
+      expect(job.data.traceId).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
     });
   });
 });

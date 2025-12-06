@@ -1,6 +1,4 @@
-import {ClsService} from 'nestjs-cls';
-import {randomUUID} from 'crypto';
-import {TRACE_ID_KEY} from '../services/trace-context.service';
+import {TraceContextService} from '../services/trace-context.service';
 
 /**
  * TraceableCronService - CLS 트레이스 컨텍스트를 자동으로 설정하는 크론 서비스 추상 클래스
@@ -12,11 +10,11 @@ import {TRACE_ID_KEY} from '../services/trace-context.service';
  * @Injectable()
  * export class ReportCronService extends TraceableCronService {
  *   constructor(
- *     cls: ClsService,
+ *     traceContext: TraceContextService,
  *     private readonly reportService: ReportService,
  *     private readonly logger: TraceableLogger,
  *   ) {
- *     super(cls);
+ *     super(traceContext);
  *   }
  *
  *   @Cron('0 0 * * *', { name: 'daily-report', timeZone: 'Asia/Seoul' })
@@ -30,26 +28,23 @@ import {TRACE_ID_KEY} from '../services/trace-context.service';
  * ```
  *
  * @benefits
- * - ClsService 주입이 필수이므로 런타임 에러 방지
+ * - TraceContextService 주입이 필수이므로 런타임 에러 방지
  * - 상속을 통한 일관된 크론 서비스 구조
  * - 크론 → 큐 → 프로세서 간 traceId 전파 보장
  * - IDE 자동완성 및 타입 체크 지원
  */
 export abstract class TraceableCronService {
-  protected readonly cls: ClsService;
-
   /**
-   * @param cls - ClsService 인스턴스 (필수)
-   * @throws Error - ClsService가 제공되지 않은 경우
+   * @param traceContext - TraceContextService 인스턴스 (필수)
+   * @throws Error - TraceContextService가 제공되지 않은 경우
    */
-  constructor(cls: ClsService) {
-    if (!cls) {
+  constructor(protected readonly traceContext: TraceContextService) {
+    if (!traceContext) {
       throw new Error(
-        `TraceableCronService requires ClsService to be injected. ` +
-          `Make sure to pass ClsService to super() in your constructor.`,
+        `TraceableCronService requires TraceContextService to be injected. ` +
+          `Make sure to pass TraceContextService to super() in your constructor.`,
       );
     }
-    this.cls = cls;
   }
 
   /**
@@ -72,10 +67,7 @@ export abstract class TraceableCronService {
    * ```
    */
   protected async runWithTrace<T>(fn: () => Promise<T>, traceId?: string): Promise<T> {
-    return this.cls.run(async () => {
-      this.cls.set(TRACE_ID_KEY, traceId ?? randomUUID());
-      return fn();
-    });
+    return this.traceContext.runAsync(fn, traceId);
   }
 
   /**
@@ -83,10 +75,20 @@ export abstract class TraceableCronService {
    * @returns 현재 CLS 컨텍스트의 traceId (없으면 undefined)
    */
   protected getTraceId(): string | undefined {
-    try {
-      return this.cls.isActive() ? this.cls.get<string>(TRACE_ID_KEY) : undefined;
-    } catch {
-      return undefined;
-    }
+    return this.traceContext.getTraceId();
+  }
+
+  /**
+   * 사용자 정의 값을 CLS에 저장합니다.
+   */
+  protected set<T>(key: string, value: T): void {
+    this.traceContext.set(key, value);
+  }
+
+  /**
+   * 사용자 정의 값을 CLS에서 조회합니다.
+   */
+  protected get<T>(key: string): T | undefined {
+    return this.traceContext.get<T>(key);
   }
 }

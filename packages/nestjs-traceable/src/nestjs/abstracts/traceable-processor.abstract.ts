@@ -1,8 +1,6 @@
 import {WorkerHost} from '@nestjs/bullmq';
-import {ClsService} from 'nestjs-cls';
 import {Job} from 'bullmq';
-import {randomUUID} from 'crypto';
-import {TRACE_ID_KEY} from '../services/trace-context.service';
+import {TraceContextService} from '../services/trace-context.service';
 
 /**
  * traceId를 포함할 수 있는 Job 데이터 인터페이스
@@ -23,11 +21,11 @@ export interface TraceableJobData {
  * @Processor('payment', { concurrency: 3 })
  * export class PaymentProcessor extends TraceableProcessor<PaymentJobData, PaymentResult> {
  *   constructor(
- *     cls: ClsService,
+ *     traceContext: TraceContextService,
  *     private readonly paymentService: PaymentService,
  *     private readonly logger: TraceableLogger,
  *   ) {
- *     super(cls);
+ *     super(traceContext);
  *   }
  *
  *   protected async executeJob(job: Job<PaymentJobData>): Promise<PaymentResult> {
@@ -51,7 +49,10 @@ export abstract class TraceableProcessor<
   TData extends TraceableJobData,
   TResult = void,
 > extends WorkerHost {
-  constructor(protected readonly cls: ClsService) {
+  /**
+   * @param traceContext - TraceContextService 인스턴스 (필수)
+   */
+  constructor(protected readonly traceContext: TraceContextService) {
     super();
   }
 
@@ -65,11 +66,7 @@ export abstract class TraceableProcessor<
    * @returns Job 처리 결과
    */
   async process(job: Job<TData>): Promise<TResult> {
-    return this.cls.run(async () => {
-      // 크론/큐에서 전달받은 traceId 사용, 없으면 새로 생성
-      this.cls.set(TRACE_ID_KEY, job.data.traceId ?? randomUUID());
-      return this.executeJob(job);
-    });
+    return this.traceContext.runAsync(() => this.executeJob(job), job.data.traceId);
   }
 
   /**
@@ -88,10 +85,20 @@ export abstract class TraceableProcessor<
    * @returns 현재 CLS 컨텍스트의 traceId (없으면 undefined)
    */
   protected getTraceId(): string | undefined {
-    try {
-      return this.cls.isActive() ? this.cls.get<string>(TRACE_ID_KEY) : undefined;
-    } catch {
-      return undefined;
-    }
+    return this.traceContext.getTraceId();
+  }
+
+  /**
+   * 사용자 정의 값을 CLS에 저장합니다.
+   */
+  protected set<T>(key: string, value: T): void {
+    this.traceContext.set(key, value);
+  }
+
+  /**
+   * 사용자 정의 값을 CLS에서 조회합니다.
+   */
+  protected get<T>(key: string): T | undefined {
+    return this.traceContext.get<T>(key);
   }
 }
