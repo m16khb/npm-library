@@ -150,12 +150,14 @@ function createWinstonFormat(
           }
         }
 
-        // meta가 있으면 메시지 뒤에 한 줄로 표시 (공백 포함 포맷)
-        const formatMeta = (obj: Record<string, unknown>) =>
-          JSON.stringify(obj, null, 1).replace(/\n\s*/g, ' ');
-        const metaSuffix = Object.keys(meta).length > 0 ? ` - ${formatMeta(meta)}` : '';
+        const baseLine = `${levelColor}[${appName}]${reset} ${pid}  - ${timestamp}     ${levelColor}${levelName.padEnd(7)}${reset} ${yellow}[${context}]${reset} ${levelColor}${message}${reset}`;
 
-        return `${levelColor}[${appName}]${reset} ${pid}  - ${timestamp}     ${levelColor}${levelName.padEnd(7)}${reset} ${yellow}[${context}]${reset} ${levelColor}${message}${metaSuffix}${reset}`;
+        // meta가 있으면 줄바꿈 후 pretty print
+        if (Object.keys(meta).length > 0) {
+          return `${baseLine}\n${JSON.stringify(meta, null, 2)}`;
+        }
+
+        return baseLine;
       }),
     );
   } else {
