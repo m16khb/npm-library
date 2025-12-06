@@ -279,6 +279,58 @@ await this.kafkaClient.emit('topic', {
 });
 ```
 
+### Storing Custom Context Values
+
+Store any request-scoped data (userId, requestIp, etc.) alongside traceId:
+
+```typescript
+// auth.interceptor.ts
+import { Injectable, NestInterceptor, ExecutionContext, CallHandler } from '@nestjs/common';
+import { TraceContextService } from '@m16khb/nestjs-traceable';
+
+@Injectable()
+export class UserContextInterceptor implements NestInterceptor {
+  constructor(private readonly traceContext: TraceContextService) {}
+
+  intercept(context: ExecutionContext, next: CallHandler) {
+    const request = context.switchToHttp().getRequest();
+
+    // Store user context
+    this.traceContext.set('userId', request.user?.id);
+    this.traceContext.set('requestIp', request.ip);
+    this.traceContext.set('userAgent', request.headers['user-agent']);
+
+    return next.handle();
+  }
+}
+```
+
+```typescript
+// order.service.ts
+import { Injectable } from '@nestjs/common';
+import { TraceContextService } from '@m16khb/nestjs-traceable';
+
+@Injectable()
+export class OrderService {
+  constructor(private readonly traceContext: TraceContextService) {}
+
+  async createOrder(orderData: OrderDto) {
+    const traceId = this.traceContext.getTraceId();
+    const userId = this.traceContext.get<string>('userId');
+    const requestIp = this.traceContext.get<string>('requestIp');
+
+    console.log({
+      traceId,
+      userId,
+      requestIp,
+      action: 'create_order',
+    });
+
+    // Order creation logic...
+  }
+}
+```
+
 ## API Reference
 
 ### TraceModule
@@ -297,6 +349,8 @@ await this.kafkaClient.emit('topic', {
 
 ### TraceContextService
 
+#### TraceId Management
+
 | Method | Return Type | Description |
 |--------|-------------|-------------|
 | `getTraceId()` | `string \| undefined` | Get current traceId |
@@ -306,6 +360,15 @@ await this.kafkaClient.emit('topic', {
 | `isActive()` | `boolean` | Check if CLS is active |
 | `run(fn, traceId?)` | `T` | Run sync function in new context |
 | `runAsync(fn, traceId?)` | `Promise<T>` | Run async function in new context |
+
+#### Custom Context Values
+
+| Method | Return Type | Description |
+|--------|-------------|-------------|
+| `set<T>(key, value)` | `void` | Store custom value in CLS |
+| `get<T>(key)` | `T \| undefined` | Retrieve custom value from CLS |
+| `has(key)` | `boolean` | Check if key exists |
+| `delete(key)` | `void` | Delete value from CLS |
 
 ### TraceableLogger
 

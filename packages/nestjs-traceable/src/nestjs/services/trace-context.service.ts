@@ -120,4 +120,71 @@ export class TraceContextService {
   getClsService(): ClsService {
     return this.cls;
   }
+
+  /**
+   * 사용자 정의 값을 CLS에 저장한다.
+   *
+   * @example
+   * ```typescript
+   * this.traceContext.set('userId', '12345');
+   * this.traceContext.set('requestId', req.id);
+   * ```
+   */
+  set<T = any>(key: string, value: T): void {
+    if (this.cls.isActive()) {
+      this.cls.set(key, value);
+    }
+  }
+
+  /**
+   * 사용자 정의 값을 CLS에서 조회한다.
+   *
+   * @example
+   * ```typescript
+   * const userId = this.traceContext.get<string>('userId');
+   * const requestId = this.traceContext.get<string>('requestId');
+   * ```
+   */
+  get<T = any>(key: string): T | undefined {
+    try {
+      if (!this.cls.isActive()) {
+        return undefined;
+      }
+      return this.cls.get<T>(key) as T | undefined;
+    } catch {
+      return undefined;
+    }
+  }
+
+  /**
+   * 특정 키가 CLS에 존재하는지 확인한다.
+   *
+   * @example
+   * ```typescript
+   * if (this.traceContext.has('userId')) {
+   *   const userId = this.traceContext.get<string>('userId');
+   * }
+   * ```
+   */
+  has(key: string): boolean {
+    try {
+      return this.cls.isActive() && this.cls.get(key) !== undefined;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * CLS에서 특정 키를 삭제한다.
+   *
+   * @example
+   * ```typescript
+   * this.traceContext.delete('temporaryData');
+   * ```
+   */
+  delete(key: string): void {
+    if (this.cls.isActive()) {
+      this.cls.set(key, undefined);
+    }
+  }
 }

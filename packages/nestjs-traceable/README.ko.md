@@ -279,6 +279,58 @@ await this.kafkaClient.emit('topic', {
 });
 ```
 
+### 사용자 정의 컨텍스트 값 저장
+
+traceId와 함께 요청 범위 데이터(userId, requestIp 등)를 저장할 수 있습니다:
+
+```typescript
+// auth.interceptor.ts
+import { Injectable, NestInterceptor, ExecutionContext, CallHandler } from '@nestjs/common';
+import { TraceContextService } from '@m16khb/nestjs-traceable';
+
+@Injectable()
+export class UserContextInterceptor implements NestInterceptor {
+  constructor(private readonly traceContext: TraceContextService) {}
+
+  intercept(context: ExecutionContext, next: CallHandler) {
+    const request = context.switchToHttp().getRequest();
+
+    // 사용자 컨텍스트 저장
+    this.traceContext.set('userId', request.user?.id);
+    this.traceContext.set('requestIp', request.ip);
+    this.traceContext.set('userAgent', request.headers['user-agent']);
+
+    return next.handle();
+  }
+}
+```
+
+```typescript
+// order.service.ts
+import { Injectable } from '@nestjs/common';
+import { TraceContextService } from '@m16khb/nestjs-traceable';
+
+@Injectable()
+export class OrderService {
+  constructor(private readonly traceContext: TraceContextService) {}
+
+  async createOrder(orderData: OrderDto) {
+    const traceId = this.traceContext.getTraceId();
+    const userId = this.traceContext.get<string>('userId');
+    const requestIp = this.traceContext.get<string>('requestIp');
+
+    console.log({
+      traceId,
+      userId,
+      requestIp,
+      action: 'create_order',
+    });
+
+    // 주문 생성 로직...
+  }
+}
+```
+
 ## API Reference
 
 ### TraceModule
@@ -297,6 +349,8 @@ await this.kafkaClient.emit('topic', {
 
 ### TraceContextService
 
+#### TraceId 관리
+
 | 메서드 | 반환 타입 | 설명 |
 |--------|----------|------|
 | `getTraceId()` | `string \| undefined` | 현재 traceId 조회 |
@@ -306,6 +360,15 @@ await this.kafkaClient.emit('topic', {
 | `isActive()` | `boolean` | CLS 활성화 여부 |
 | `run(fn, traceId?)` | `T` | 새 컨텍스트에서 동기 함수 실행 |
 | `runAsync(fn, traceId?)` | `Promise<T>` | 새 컨텍스트에서 비동기 함수 실행 |
+
+#### 사용자 정의 컨텍스트 값
+
+| 메서드 | 반환 타입 | 설명 |
+|--------|----------|------|
+| `set<T>(key, value)` | `void` | CLS에 사용자 정의 값 저장 |
+| `get<T>(key)` | `T \| undefined` | CLS에서 값 조회 |
+| `has(key)` | `boolean` | 키 존재 여부 확인 |
+| `delete(key)` | `void` | CLS에서 값 삭제 |
 
 ### TraceableLogger
 
