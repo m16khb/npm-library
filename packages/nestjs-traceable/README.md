@@ -331,6 +331,74 @@ export class OrderService {
 }
 ```
 
+### Error Chain Tracking (ES2022 Error.cause)
+
+TraceableLogger automatically tracks Error.cause chains for better debugging:
+
+```typescript
+// service.ts
+import { Injectable } from '@nestjs/common';
+import { TraceableLogger } from '@m16khb/nestjs-traceable';
+
+@Injectable()
+export class PaymentService {
+  constructor(private readonly logger: TraceableLogger) {
+    this.logger = this.logger.setContext('PaymentService');
+  }
+
+  async processPayment(orderId: string) {
+    try {
+      await this.chargeCard();
+    } catch (err) {
+      // Inner error
+      const inner = new Error('Connection timeout');
+
+      // Wrap with cause
+      const outer = new Error('Payment gateway unavailable', { cause: inner });
+
+      // Log with automatic chain tracking
+      this.logger.error('Payment failed', outer);
+
+      // Logged output includes:
+      // - error: "Payment gateway unavailable"
+      // - errorChain: "Payment gateway unavailable → Connection timeout"
+      // - rootCause: "Connection timeout"
+      // - stack: [full stack trace]
+    }
+  }
+}
+```
+
+**Error Utility Functions** (exported for custom usage):
+
+```typescript
+import {
+  getErrorChain,
+  getRootCause,
+  getFullErrorDetails,
+  formatErrorForLogging,
+} from '@m16khb/nestjs-traceable';
+
+// Get full error chain as string
+const chain = getErrorChain(error);
+// "Payment failed → Gateway error → Connection timeout"
+
+// Get root cause
+const root = getRootCause(error);
+// Original Error object at the end of the chain
+
+// Get comprehensive error details
+const details = getFullErrorDetails(error);
+// {
+//   message: "Payment failed",
+//   chain: "Payment failed → Gateway error → Connection timeout",
+//   rootCause: { message: "Connection timeout", name: "Error" },
+//   depth: 3,
+//   stack: "...",
+//   name: "Error"
+// }
+```
+
 ## API Reference
 
 ### TraceModule

@@ -114,7 +114,9 @@ describe('TraceableLogger', () => {
         message: '처리 실패',
         context: undefined,
         error: '테스트 에러',
+        errorChain: undefined, // 단일 에러는 체인이 없음
         stack: expect.stringContaining('Error: 테스트 에러'),
+        rootCause: '테스트 에러', // 단일 에러의 rootCause는 자기 자신
       });
     });
 
@@ -275,7 +277,9 @@ describe('TraceableLogger', () => {
         context: undefined,
         fatal: true,
         error: 'DB 연결 실패',
+        errorChain: undefined, // 단일 에러는 체인이 없음
         stack: expect.stringContaining('Error: DB 연결 실패'),
+        rootCause: 'DB 연결 실패', // 단일 에러의 rootCause는 자기 자신
       });
     });
 

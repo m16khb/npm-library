@@ -1,6 +1,7 @@
 import { Inject, Injectable, LoggerService as NestLoggerService, Optional } from '@nestjs/common';
 import { WINSTON_MODULE_PROVIDER } from 'nest-winston';
 import { Logger } from 'winston';
+import { formatErrorForLogging } from '../utils/error.util';
 
 /**
  * 로그 레벨 정의
@@ -101,27 +102,44 @@ export class TraceableLogger implements NestLoggerService {
   /**
    * ERROR 레벨 로그
    * @param message - 로그 메시지
-   * @param errorOrMeta - Error 객체 또는 메타데이터 객체
+   * @param errorOrMeta - Error 객체, 메타데이터 객체, 또는 unknown 타입 (catch 블록용)
    *
-   * Error 객체가 전달되면 `error` (메시지)와 `stack`을 자동 추출
+   * Error.cause 체인을 자동 추적하여 로깅
    */
-  error(message: string, errorOrMeta?: Error | LogMeta): void {
+  error(message: string, errorOrMeta?: unknown): void {
     if (!this.winstonLogger) {
       this.fallbackLog('error', message, errorOrMeta);
       return;
     }
+
     if (errorOrMeta instanceof Error) {
+      // Error.cause 체인 포함 상세 정보
+      const errorInfo = formatErrorForLogging(errorOrMeta, this.context);
       this.winstonLogger.error({
         message,
         context: this.context,
-        error: errorOrMeta.message,
-        stack: errorOrMeta.stack,
+        error: errorInfo.message,
+        errorChain: errorInfo.chain !== errorInfo.message ? errorInfo.chain : undefined,
+        stack: errorInfo.stack,
+        rootCause: errorInfo.rootCause,
+      });
+    } else if (errorOrMeta && typeof errorOrMeta === 'object') {
+      this.winstonLogger.error({
+        message,
+        context: this.context,
+        ...(errorOrMeta as LogMeta),
+      });
+    } else if (errorOrMeta !== undefined) {
+      // unknown이지만 객체도 Error도 아닌 경우 (string, number 등)
+      this.winstonLogger.error({
+        message,
+        context: this.context,
+        error: String(errorOrMeta),
       });
     } else {
       this.winstonLogger.error({
         message,
         context: this.context,
-        ...errorOrMeta,
       });
     }
   }
@@ -218,27 +236,47 @@ export class TraceableLogger implements NestLoggerService {
   /**
    * FATAL 레벨 로그 (error로 출력, fatal 플래그 추가)
    * @param message - 로그 메시지
-   * @param errorOrMeta - Error 객체 또는 메타데이터 객체
+   * @param errorOrMeta - Error 객체, 메타데이터 객체, 또는 unknown 타입 (catch 블록용)
+   *
+   * Error.cause 체인을 자동 추적하여 로깅
    */
-  fatal(message: string, errorOrMeta?: Error | LogMeta): void {
+  fatal(message: string, errorOrMeta?: unknown): void {
     if (!this.winstonLogger) {
       this.fallbackLog('error', `[FATAL] ${message}`, errorOrMeta);
       return;
     }
+
     if (errorOrMeta instanceof Error) {
+      // Error.cause 체인 포함 상세 정보
+      const errorInfo = formatErrorForLogging(errorOrMeta, this.context);
       this.winstonLogger.error({
         message,
         context: this.context,
         fatal: true,
-        error: errorOrMeta.message,
-        stack: errorOrMeta.stack,
+        error: errorInfo.message,
+        errorChain: errorInfo.chain !== errorInfo.message ? errorInfo.chain : undefined,
+        stack: errorInfo.stack,
+        rootCause: errorInfo.rootCause,
+      });
+    } else if (errorOrMeta && typeof errorOrMeta === 'object') {
+      this.winstonLogger.error({
+        message,
+        context: this.context,
+        fatal: true,
+        ...(errorOrMeta as LogMeta),
+      });
+    } else if (errorOrMeta !== undefined) {
+      this.winstonLogger.error({
+        message,
+        context: this.context,
+        fatal: true,
+        error: String(errorOrMeta),
       });
     } else {
       this.winstonLogger.error({
         message,
         context: this.context,
         fatal: true,
-        ...errorOrMeta,
       });
     }
   }

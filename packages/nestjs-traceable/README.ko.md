@@ -331,6 +331,74 @@ export class OrderService {
 }
 ```
 
+### Error 체인 추적 (ES2022 Error.cause)
+
+TraceableLogger는 Error.cause 체인을 자동으로 추적하여 더 나은 디버깅을 제공합니다:
+
+```typescript
+// service.ts
+import { Injectable } from '@nestjs/common';
+import { TraceableLogger } from '@m16khb/nestjs-traceable';
+
+@Injectable()
+export class PaymentService {
+  constructor(private readonly logger: TraceableLogger) {
+    this.logger = this.logger.setContext('PaymentService');
+  }
+
+  async processPayment(orderId: string) {
+    try {
+      await this.chargeCard();
+    } catch (err) {
+      // 내부 에러
+      const inner = new Error('Connection timeout');
+
+      // cause로 래핑
+      const outer = new Error('Payment gateway unavailable', { cause: inner });
+
+      // 자동 체인 추적과 함께 로깅
+      this.logger.error('결제 실패', outer);
+
+      // 로그 출력에 포함됨:
+      // - error: "Payment gateway unavailable"
+      // - errorChain: "Payment gateway unavailable → Connection timeout"
+      // - rootCause: "Connection timeout"
+      // - stack: [전체 스택 트레이스]
+    }
+  }
+}
+```
+
+**Error 유틸리티 함수** (커스텀 사용을 위해 export됨):
+
+```typescript
+import {
+  getErrorChain,
+  getRootCause,
+  getFullErrorDetails,
+  formatErrorForLogging,
+} from '@m16khb/nestjs-traceable';
+
+// 전체 에러 체인을 문자열로 가져오기
+const chain = getErrorChain(error);
+// "결제 실패 → 게이트웨이 오류 → 연결 타임아웃"
+
+// 최초 원인 가져오기
+const root = getRootCause(error);
+// 체인의 마지막 원본 Error 객체
+
+// 포괄적인 에러 상세 정보 가져오기
+const details = getFullErrorDetails(error);
+// {
+//   message: "결제 실패",
+//   chain: "결제 실패 → 게이트웨이 오류 → 연결 타임아웃",
+//   rootCause: { message: "연결 타임아웃", name: "Error" },
+//   depth: 3,
+//   stack: "...",
+//   name: "Error"
+// }
+```
+
 ## API Reference
 
 ### TraceModule

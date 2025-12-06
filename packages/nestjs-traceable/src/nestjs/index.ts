@@ -51,3 +51,13 @@ export {
   LOG_MESSAGES,
   TRACE_OPTIONS,
 } from './constants';
+
+// Utilities
+export {
+  getErrorMessage,
+  getErrorDetails,
+  getErrorChain,
+  getRootCause,
+  getFullErrorDetails,
+  formatErrorForLogging,
+} from './utils';
