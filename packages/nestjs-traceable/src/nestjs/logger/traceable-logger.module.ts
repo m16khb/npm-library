@@ -68,9 +68,8 @@ export interface TraceableLoggerModuleAsyncOptions {
   /** Factory 함수에 주입할 프로바이더 */
   inject?: InjectionToken[];
   /** 설정 Factory 함수 */
-  useFactory: (
-    ...args: unknown[]
-  ) => TraceableLoggerModuleOptions | Promise<TraceableLoggerModuleOptions>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  useFactory: (...args: any[]) => TraceableLoggerModuleOptions | Promise<TraceableLoggerModuleOptions>;
   /** 전역 모듈 여부 (기본: true) */
   isGlobal?: boolean;
 }
