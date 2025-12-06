@@ -9,7 +9,7 @@ export default defineConfig({
     'core/concurrency/index': 'src/core/concurrency/index.ts',
     'nestjs/index': 'src/nestjs/index.ts',
   },
-  format: ['esm'],
+  format: ['esm', 'cjs'],
   dts: {
     resolve: true,
   },

@@ -1,5 +1,11 @@
 # @m16khb/nestjs-async-utils
 
+## 1.0.5
+
+### Patch Changes
+
+- fix: CommonJS 호환성 개선 - exports 필드에 require 조건 추가 및 CJS 빌드 지원
+
 ## 1.0.4
 
 ### Patch Changes

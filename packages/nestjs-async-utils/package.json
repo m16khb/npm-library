@@ -1,8 +1,8 @@
 {
   "name": "@m16khb/nestjs-async-utils",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "NestJS 비동기 작업 제어 라이브러리 - @Retryable, @Timeout, @ConcurrencyLimit 데코레이터",
-  "main": "./dist/index.js",
+  "main": "./dist/index.cjs",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "type": "module",
@@ -10,27 +10,33 @@
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
     },
     "./core": {
       "types": "./dist/core/index.d.ts",
-      "import": "./dist/core/index.js"
+      "import": "./dist/core/index.js",
+      "require": "./dist/core/index.cjs"
     },
     "./nestjs": {
       "types": "./dist/nestjs/index.d.ts",
-      "import": "./dist/nestjs/index.js"
+      "import": "./dist/nestjs/index.js",
+      "require": "./dist/nestjs/index.cjs"
     },
     "./retry": {
       "types": "./dist/core/retry/index.d.ts",
-      "import": "./dist/core/retry/index.js"
+      "import": "./dist/core/retry/index.js",
+      "require": "./dist/core/retry/index.cjs"
     },
     "./timeout": {
       "types": "./dist/core/timeout/index.d.ts",
-      "import": "./dist/core/timeout/index.js"
+      "import": "./dist/core/timeout/index.js",
+      "require": "./dist/core/timeout/index.cjs"
     },
     "./concurrency": {
       "types": "./dist/core/concurrency/index.d.ts",
-      "import": "./dist/core/concurrency/index.js"
+      "import": "./dist/core/concurrency/index.js",
+      "require": "./dist/core/concurrency/index.cjs"
     },
     "./package.json": "./package.json"
   },
