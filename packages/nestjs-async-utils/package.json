@@ -1,6 +1,6 @@
 {
   "name": "@m16khb/nestjs-async-utils",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "NestJS 비동기 작업 제어 라이브러리 - @Retryable, @Timeout, @ConcurrencyLimit 데코레이터",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
