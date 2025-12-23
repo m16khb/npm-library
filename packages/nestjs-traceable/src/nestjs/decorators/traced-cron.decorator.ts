@@ -41,8 +41,11 @@ interface HasTraceContext {
  * @requires 클래스에 `traceContext: TraceContextService` 프로퍼티가 있어야 합니다.
  */
 export function TracedCron(cronTime: string | Date, options?: CronOptions): MethodDecorator {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return function (target: object, propertyKey: string | symbol, descriptor: PropertyDescriptor): PropertyDescriptor {
+  return function (
+    target: object,
+    propertyKey: string | symbol,
+    descriptor: PropertyDescriptor,
+  ): PropertyDescriptor {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const originalMethod = descriptor.value as (...args: any[]) => Promise<any>;
 

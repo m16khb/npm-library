@@ -36,10 +36,11 @@ npm-library/
 
 ## 하위 모듈
 
-| 모듈                                                        | 설명                              |
-| ----------------------------------------------------------- | --------------------------------- |
-| [traceable](packages/traceable/CLAUDE.md)                   | Traceable 라이브러리              |
-| [nestjs-async-utils](packages/nestjs-async-utils/README.md) | NestJS 비동기 유틸리티 데코레이터 |
+| 모듈                                                        | 설명                                      |
+| ----------------------------------------------------------- | ----------------------------------------- |
+| [traceable](packages/traceable/CLAUDE.md)                   | Traceable 라이브러리                      |
+| [nestjs-async-utils](packages/nestjs-async-utils/README.md) | NestJS 비동기 유틸리티 데코레이터         |
+| [nestjs-sidequest](packages/nestjs-sidequest/CLAUDE.md)     | NestJS Sidequest.js 통합 (DB 기반 Job 큐) |
 
 ## Active Technologies
 
