@@ -5,51 +5,51 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.7+-blue.svg)](https://www.typescriptlang.org/)
 [![NestJS](https://img.shields.io/badge/NestJS-10%20%7C%2011-red.svg)](https://nestjs.com/)
 
-[English](#) | [한국어](https://github.com/m16khb/npm-library/blob/main/packages/nestjs-sidequest/README.ko.md)
+[English](https://github.com/m16khb/npm-library/blob/main/packages/nestjs-sidequest/README.md) | [한국어](#)
 
-**NestJS integration for [Sidequest.js](https://sidequestjs.com/)** - Database-native background job processing without Redis.
+**[Sidequest.js](https://sidequestjs.com/)용 NestJS 통합 라이브러리** - Redis 없이 데이터베이스 기반 백그라운드 Job 처리.
 
-Process background jobs using your existing database (PostgreSQL, MySQL, MongoDB, SQLite) with full NestJS decorator support and optional CLS integration.
+기존 데이터베이스(PostgreSQL, MySQL, MongoDB, SQLite)를 활용해 백그라운드 Job을 처리하세요. NestJS 데코레이터와 선택적 CLS 통합을 완벽 지원합니다.
 
-## Features
+## 특징
 
-- **Database-Native Jobs** - Use your existing database instead of Redis
-- **Transaction Consistency** - Atomic job creation within database transactions
-- **Decorator-Based API** - Familiar `@Processor`, `@OnJob`, `@Retry` decorators
-- **Optional CLS Support** - Context propagation with nestjs-cls
-- **Event Handlers** - `@OnJobComplete`, `@OnJobFailed` for job lifecycle events
-- **Multiple Queue Support** - Configure queues with individual concurrency settings
-- **Dashboard** - Built-in UI for monitoring jobs (optional)
+- **데이터베이스 네이티브 Job** - Redis 대신 기존 데이터베이스 사용
+- **트랜잭션 일관성** - 데이터베이스 트랜잭션 내에서 원자적 Job 생성
+- **데코레이터 기반 API** - 익숙한 `@Processor`, `@OnJob`, `@Retry` 데코레이터
+- **선택적 CLS 지원** - nestjs-cls로 컨텍스트 전파
+- **이벤트 핸들러** - Job 생명주기 이벤트용 `@OnJobComplete`, `@OnJobFailed`
+- **다중 큐 지원** - 개별 동시성 설정으로 여러 큐 구성
+- **대시보드** - Job 모니터링을 위한 내장 UI (선택 사항)
 
-## Installation
+## 설치
 
 ```bash
 npm install @m16khb/nestjs-sidequest sidequest
 
-# Choose your database backend
+# 데이터베이스 백엔드 선택
 npm install @sidequest/postgres-backend  # PostgreSQL
 npm install @sidequest/mysql-backend     # MySQL
 npm install @sidequest/sqlite-backend    # SQLite
 npm install @sidequest/mongo-backend     # MongoDB
 ```
 
-### Optional Dependencies
+### 선택적 의존성
 
 ```bash
-# For CLS context propagation
+# CLS 컨텍스트 전파를 위해
 pnpm add nestjs-cls
 ```
 
-## Requirements
+## 요구사항
 
 - Node.js >= 22.6.0
 - NestJS >= 10.0.0
 - TypeScript >= 5.7
-- A supported database backend
+- 지원되는 데이터베이스 백엔드
 
-## Quick Start
+## 빠른 시작
 
-### 1. Register Module
+### 1. 모듈 등록
 
 ```typescript
 // app.module.ts
@@ -73,7 +73,7 @@ import { SidequestModule } from '@m16khb/nestjs-sidequest';
 export class AppModule {}
 ```
 
-### 2. Define a Job Class (Sidequest.js Pattern)
+### 2. Job 클래스 정의 (Sidequest.js 패턴)
 
 ```typescript
 // jobs/send-welcome-email.job.ts
@@ -89,7 +89,7 @@ export class SendWelcomeEmailJob extends Job {
 }
 ```
 
-### 3. Create a Processor
+### 3. Processor 생성
 
 ```typescript
 // email.processor.ts
@@ -105,7 +105,7 @@ export class EmailProcessor {
   async handleWelcomeEmail(job: SendWelcomeEmailJob) {
     await this.mailer.send({
       to: job.to,
-      subject: `Welcome, ${job.name}!`,
+      subject: `${job.name}님, 환영합니다!`,
       template: 'welcome',
     });
     return { sentAt: new Date() };
@@ -113,17 +113,17 @@ export class EmailProcessor {
 
   @OnJobComplete(SendWelcomeEmailJob)
   async onComplete(event: JobCompleteEvent) {
-    console.log(`Email sent at: ${event.result.sentAt}`);
+    console.log(`이메일 발송 완료: ${event.result.sentAt}`);
   }
 
   @OnJobFailed(SendWelcomeEmailJob)
   async onFailed(event: JobFailedEvent) {
-    console.error(`Email failed: ${event.error.message}`);
+    console.error(`이메일 발송 실패: ${event.error.message}`);
   }
 }
 ```
 
-### 4. Inject Queue and Add Jobs
+### 4. Queue 주입 및 Job 추가
 
 ```typescript
 // user.service.ts
@@ -138,10 +138,10 @@ export class UserService {
   ) {}
 
   async createUser(email: string, name: string) {
-    // Create user in database...
+    // 데이터베이스에 사용자 생성...
     const user = await this.userRepository.save({ email, name });
 
-    // Queue welcome email (runs in background)
+    // 환영 이메일 큐에 추가 (백그라운드 실행)
     await this.emailQueue.add(SendWelcomeEmailJob, email, name);
   }
 
@@ -156,46 +156,46 @@ export class UserService {
 }
 ```
 
-## Module Configuration
+## 모듈 설정
 
-### forRoot (Synchronous)
+### forRoot (동기)
 
 ```typescript
 SidequestModule.forRoot({
-  // Module
-  isGlobal: true,  // Default: true
+  // 모듈
+  isGlobal: true,  // 기본값: true
 
-  // Database Backend
+  // 데이터베이스 백엔드
   backend: {
     driver: '@sidequest/postgres-backend',
     config: process.env.DATABASE_URL,
   },
 
-  // Queues
+  // 큐
   queues: [
     {
       name: 'email',
-      concurrency: 5,      // Max concurrent jobs
-      priority: 50,        // Default priority (higher = first)
+      concurrency: 5,      // 최대 동시 Job 수
+      priority: 50,        // 기본 우선순위 (높을수록 우선)
       state: 'active',     // 'active' | 'paused'
     },
   ],
 
-  // Engine Settings
-  maxConcurrentJobs: 10,           // Global max concurrency
-  minThreads: 4,                   // Min worker threads (default: CPU cores)
-  maxThreads: 8,                   // Max worker threads (default: minThreads * 2)
-  jobPollingInterval: 100,         // Job polling interval (ms)
-  releaseStaleJobsIntervalMin: 60, // Stale job release interval (minutes)
-  cleanupFinishedJobsIntervalMin: 60, // Finished job cleanup interval (minutes)
+  // 엔진 설정
+  maxConcurrentJobs: 10,           // 전체 최대 동시성
+  minThreads: 4,                   // 최소 워커 스레드 (기본값: CPU 코어 수)
+  maxThreads: 8,                   // 최대 워커 스레드 (기본값: minThreads * 2)
+  jobPollingInterval: 100,         // Job 폴링 간격 (ms)
+  releaseStaleJobsIntervalMin: 60, // 오래된 Job 해제 간격 (분)
+  cleanupFinishedJobsIntervalMin: 60, // 완료된 Job 정리 간격 (분)
 
-  // Logger
+  // 로거
   logger: {
     level: 'info',
-    json: false,  // JSON output for production
+    json: false,  // 프로덕션용 JSON 출력
   },
 
-  // Dashboard (Optional)
+  // 대시보드 (선택 사항)
   dashboard: {
     enabled: true,
     port: 8678,
@@ -209,15 +209,15 @@ SidequestModule.forRoot({
   // Graceful Shutdown
   gracefulShutdown: {
     enabled: true,
-    timeout: 30000,  // 30 seconds
+    timeout: 30000,  // 30초
   },
 
-  // CLS Integration (Optional)
-  enableCls: true,  // Requires nestjs-cls to be installed
+  // CLS 통합 (선택 사항)
+  enableCls: true,  // nestjs-cls 필요
 })
 ```
 
-### forRootAsync (Asynchronous)
+### forRootAsync (비동기)
 
 ```typescript
 SidequestModule.forRootAsync({
@@ -236,11 +236,11 @@ SidequestModule.forRootAsync({
 })
 ```
 
-## Decorators
+## 데코레이터
 
 ### @Processor(queueName, options?)
 
-Marks a class as a job processor for the specified queue.
+클래스를 지정된 큐의 Job 프로세서로标记합니다.
 
 ```typescript
 @Processor('email', { concurrency: 10 })
@@ -249,7 +249,7 @@ export class EmailProcessor {}
 
 ### @OnJob(JobClass, options?)
 
-Marks a method as a handler for the specified job type.
+메서드를 지정된 Job 타입의 핸들러로标记합니다.
 
 ```typescript
 @OnJob(SendEmailJob, { timeout: 30000 })
@@ -260,17 +260,17 @@ async handleEmail(job: SendEmailJob) {
 
 ### @Retry(options)
 
-Configures retry policy for a job handler.
+Job 핸들러의 재시도 정책을 설정합니다.
 
 ```typescript
 @Retry({
   maxAttempts: 3,
   backoff: {
     type: 'exponential',  // 'exponential' | 'fixed'
-    delay: 1000,         // Initial delay in ms
-    multiplier: 2,       // Exponential multiplier
+    delay: 1000,         // 초기 지연 시간 (ms)
+    multiplier: 2,       // 지수 승수
   },
-  retryOn: ['NetworkError', 'TimeoutError'],  // Retry only on these errors
+  retryOn: ['NetworkError', 'TimeoutError'],  // 이 에러들만 재시도
 })
 async handleJob(job: AnyJob) {
   // ...
@@ -279,7 +279,7 @@ async handleJob(job: AnyJob) {
 
 ### @InjectQueue(queueName)
 
-Injects a queue service instance.
+큐 서비스 인스턴스를 주입합니다.
 
 ```typescript
 constructor(@InjectQueue('email') private emailQueue: IQueueService) {}
@@ -287,50 +287,50 @@ constructor(@InjectQueue('email') private emailQueue: IQueueService) {}
 
 ### @OnJobComplete(JobClass?)
 
-Handler called when a job completes successfully.
+Job이 성공적으로 완료되었을 때 호출되는 핸들러입니다.
 
 ```typescript
 @OnJobComplete(SendEmailJob)
 async onComplete(event: JobCompleteEvent) {
-  console.log(`Job ${event.jobId} completed:`, event.result);
+  console.log(`Job ${event.jobId} 완료:`, event.result);
 }
 ```
 
 ### @OnJobFailed(JobClass?)
 
-Handler called when a job fails.
+Job이 실패했을 때 호출되는 핸들러입니다.
 
 ```typescript
 @OnJobFailed(SendEmailJob)
 async onFailed(event: JobFailedEvent) {
-  console.error(`Job ${event.jobId} failed:`, event.error);
+  console.error(`Job ${event.jobId} 실패:`, event.error);
 }
 ```
 
-## Queue Service API
+## 큐 서비스 API
 
 ```typescript
 interface IQueueService {
   readonly name: string;
 
-  // Add a single job
+  // 단일 Job 추가
   add<T>(JobClass: new (...args: unknown[]) => T, ...args: Parameters<T['constructor']>): Promise<string>;
 
-  // Add a job with options
+  // 옵션과 함께 Job 추가
   addWithOptions<T>(
     JobClass: new (...args: unknown[]) => T,
     options: JobAddOptions,
     ...args: Parameters<T['constructor']>
   ): Promise<string>;
 
-  // Add a scheduled job
+  // 예약된 Job 추가
   addScheduled<T>(
     JobClass: new (...args: unknown[]) => T,
     scheduledAt: Date,
     ...args: Parameters<T['constructor']>
   ): Promise<string>;
 
-  // Add multiple jobs (bulk)
+  // 여러 Job 추가 (벌크)
   addBulk<T>(jobs: Array<{
     JobClass: new (...args: unknown[]) => T;
     args: Parameters<T['constructor']>;
@@ -343,25 +343,25 @@ interface IQueueService {
 
 ```typescript
 interface JobAddOptions {
-  priority?: number;       // Higher = processed first (default: 50)
-  timeout?: number;        // Job timeout in ms
-  maxAttempts?: number;    // Override retry attempts
-  startAfter?: Date;       // Delayed start
+  priority?: number;       // 높을수록 먼저 처리 (기본값: 50)
+  timeout?: number;        // Job 타임아웃 (ms)
+  maxAttempts?: number;    // 재시도 횟수 재정의
+  startAfter?: Date;       // 지연된 시작
 }
 ```
 
-## CLS Integration
+## CLS 통합
 
-Enable CLS integration to propagate context (traceId, userId, etc.) across job executions:
+CLS 통합을 활성화하여 Job 실행 간 컨텍스트(traceId, userId 등)를 전파하세요:
 
 ```typescript
 // app.module.ts
 SidequestModule.forRoot({
   // ...
-  enableCls: true,  // Requires nestjs-cls
+  enableCls: true,  // nestjs-cls 필요
 })
 
-// Context is automatically propagated
+// 컨텍스트가 자동으로 전파됨
 @Processor('email')
 export class EmailProcessor {
   constructor(private readonly cls: ClsService) {}
@@ -371,32 +371,32 @@ export class EmailProcessor {
     const traceId = this.cls.getId();
     const userId = this.cls.get('userId');
 
-    console.log(`[${traceId}] Processing job for user ${userId}`);
+    console.log(`[${traceId}] 사용자 ${userId}의 Job 처리 중`);
   }
 }
 ```
 
-## Why Sidequest.js?
+## 왜 Sidequest.js인가요?
 
-| Feature | BullMQ + Redis | Sidequest.js |
+| 기능 | BullMQ + Redis | Sidequest.js |
 |---------|----------------|--------------|
-| Infrastructure | Additional Redis server | Uses existing database |
-| Transaction Support | Requires compensation transactions | Native DB transaction support |
-| Operational Cost | Extra Redis instance cost | No additional infrastructure |
-| Deployment Simplicity | Manage Redis cluster | Simple database connection |
+| 인프라 | 추가 Redis 서버 필요 | 기존 데이터베이스 사용 |
+| 트랜잭션 지원 | 보상 트랜잭션 필요 | 네이티브 DB 트랜잭션 지원 |
+| 운영 비용 | 추가 Redis 인스턴스 비용 | 추가 인프라 불필요 |
+| 배포 단순성 | Redis 클러스터 관리 | 간단한 데이터베이스 연결 |
 
-## License
+## 라이선스
 
-**LGPL v3** - This library is licensed under the GNU Lesser General Public License v3.0.
+**LGPL v3** - 이 라이브러리는 GNU Lesser General Public License v3.0 하에 라이선스됩니다.
 
-This means:
-- You may use this library in proprietary software without opening your source code
-- If you modify this library itself, modifications must be released under LGPL/GPL
-- You must provide license attribution and allow users to replace the library
-- Dynamic linking is recommended for compliance
+의미:
+- 상용 소프트웨어에서 이 라이브러리를 사용해도 소스코드를 공개할 의무가 없습니다
+- 이 라이브러리 자체를 수정한 경우 수정본은 LGPL/GPL로 공개해야 합니다
+- 라이선스 attribution을 제공하고 사용자가 라이브러리를 교체할 수 있도록 해야 합니다
+- 동적 링킹을 권장합니다
 
-For full license text, see [LICENSE](LICENSE).
+전체 라이선스 텍스트는 [LICENSE](LICENSE)를 참고하세요.
 
 ---
 
-This package integrates [Sidequest.js](https://sidequestjs.com/), which is also licensed under LGPL v3.
+이 패키지는 LGPL v3로 라이선스된 [Sidequest.js](https://sidequestjs.com/)를 통합합니다.
