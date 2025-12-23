@@ -240,7 +240,7 @@ SidequestModule.forRootAsync({
 
 ### @Processor(queueName, options?)
 
-클래스를 지정된 큐의 Job 프로세서로标记합니다.
+클래스를 지정된 큐의 Job 프로세서로 표시합니다.
 
 ```typescript
 @Processor('email', { concurrency: 10 })
@@ -249,7 +249,7 @@ export class EmailProcessor {}
 
 ### @OnJob(JobClass, options?)
 
-메서드를 지정된 Job 타입의 핸들러로标记합니다.
+메서드를 지정된 Job 타입의 핸들러로 표시합니다.
 
 ```typescript
 @OnJob(SendEmailJob, { timeout: 30000 })
