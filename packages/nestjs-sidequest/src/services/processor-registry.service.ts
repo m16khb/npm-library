@@ -12,9 +12,7 @@ export class ProcessorRegistryService {
   private readonly logger = new Logger(ProcessorRegistryService.name);
   private readonly processors = new Map<string, RegisteredProcessor>();
 
-  constructor(
-    @Optional() private readonly clsService?: ClsIntegrationService,
-  ) {}
+  constructor(@Optional() private readonly clsService?: ClsIntegrationService) {}
 
   /**
    * 프로세서 등록

@@ -41,10 +41,7 @@ export class ClsIntegrationService {
   /**
    * CLS context 내에서 콜백 실행
    */
-  async runInContext<T>(
-    metadata: Record<string, unknown>,
-    callback: () => Promise<T>,
-  ): Promise<T> {
+  async runInContext<T>(metadata: Record<string, unknown>, callback: () => Promise<T>): Promise<T> {
     if (!this.enabled || !this.clsService) {
       return callback();
     }

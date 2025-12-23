@@ -134,8 +134,7 @@ export class SidequestAdapter {
       throw new Error(`Job class '${jobName}' not found. Make sure it's registered.`);
     }
 
-    let builder: JobBuilder<JobClassType> = Sidequest.build(JobClass)
-      .queue(queueName);
+    let builder: JobBuilder<JobClassType> = Sidequest.build(JobClass).queue(queueName);
 
     // 옵션 적용
     if (options?.maxAttempts !== undefined) {
