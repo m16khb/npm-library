@@ -36,21 +36,20 @@ npm-library/
 
 ## 하위 모듈
 
-| 모듈                                                        | 설명                                      |
-| ----------------------------------------------------------- | ----------------------------------------- |
-| [traceable](packages/traceable/CLAUDE.md)                   | Traceable 라이브러리                      |
-| [nestjs-async-utils](packages/nestjs-async-utils/README.md) | NestJS 비동기 유틸리티 데코레이터         |
-| [nestjs-sidequest](packages/nestjs-sidequest/CLAUDE.md)     | NestJS Sidequest.js 통합 (DB 기반 Job 큐) |
+| 모듈                                                         | 버전   | 설명                                      |
+| ------------------------------------------------------------ | ------ | ----------------------------------------- |
+| [nestjs-traceable](packages/nestjs-traceable/CLAUDE.md)     | 1.3.3  | TraceId 기반 분산 추적 라이브러리         |
+| [nestjs-async-utils](packages/nestjs-async-utils/CLAUDE.md) | 1.0.5  | NestJS 비동기 유틸리티 데코레이터         |
+| [nestjs-sidequest](packages/nestjs-sidequest/CLAUDE.md)     | 0.1.2  | NestJS Sidequest.js 통합 (DB 기반 Job 큐) |
 
 ## Active Technologies
 
-- TypeScript 5.7+ (ES2022, strict mode) + @nestjs/common ^10.0.0 || ^11.0.0, rxjs ^7.0.0 (peerDependencies) (003-nestjs-traceable)
-- N/A (in-memory AsyncLocalStorage only) (003-nestjs-traceable)
-
-- N/A (in-memory state only - 동시성 카운터, 큐) (002-nestjs-async-decorators)
-- TypeScript 5.7+ (ES2022, strict mode) + Zero dependency (core), @nestjs/common ^10.0.0 || ^11.0.0 (peerDependency) (001-async-utils)
-- N/A (in-memory state only) (001-async-utils)
+- **TypeScript 5.7+** (ES2022, strict mode)
+- **Node.js**: 20+ (traceable, async-utils), 22.6.0+ (sidequest)
+- **NestJS**: 10.x / 11.x 호환
 
 ## Recent Changes
 
-- 002-nestjs-async-decorators: NestJS 비동기 데코레이터 라이브러리 추가
+- **nestjs-sidequest (v0.1.2)**: Sidequest.js 통합 패키지 추가 (LGPL v3)
+- **nestjs-traceable (v1.3.3)**: Error.cause 체인 추적 기능 추가
+- **nestjs-async-utils (v1.0.5)**: 서브패스 export 지원 (/core, /nestjs, /retry, /timeout, /concurrency)
