@@ -145,5 +145,70 @@ describe('QueueRegistryService', () => {
       expect(jobIds).toBeDefined();
       expect(mockAdapter.addBulkJobs).toHaveBeenCalled();
     });
+
+    it('addBulk 메서드가 사용자 지정 chunkSize를 전달한다', async () => {
+      const queue = service.getQueueOrThrow('email');
+
+      class SendEmailJob {
+        async run() {}
+      }
+
+      await queue.addBulk(
+        [
+          {JobClass: SendEmailJob, args: ['user1@example.com']},
+          {JobClass: SendEmailJob, args: ['user2@example.com']},
+        ],
+        {chunkSize: 50},
+      );
+
+      expect(mockAdapter.addBulkJobs).toHaveBeenCalledWith(
+        'email',
+        expect.any(Array),
+        50,
+      );
+    });
+
+    it('addBulk 메서드가 빈 배열 입력 시 빈 배열을 반환한다', async () => {
+      const queue = service.getQueueOrThrow('email');
+
+      const jobIds = await queue.addBulk([]);
+
+      expect(jobIds).toEqual([]);
+      expect(mockAdapter.addBulkJobs).not.toHaveBeenCalled();
+    });
+
+    it('addBulk 메서드가 chunkSize <= 0이면 에러를 throw한다', async () => {
+      const queue = service.getQueueOrThrow('email');
+
+      class SendEmailJob {
+        async run() {}
+      }
+
+      await expect(
+        queue.addBulk([{JobClass: SendEmailJob, args: ['test']}], {chunkSize: 0}),
+      ).rejects.toThrow('BulkJobOptions.chunkSize must be a positive number');
+
+      await expect(
+        queue.addBulk([{JobClass: SendEmailJob, args: ['test']}], {chunkSize: -10}),
+      ).rejects.toThrow('BulkJobOptions.chunkSize must be a positive number');
+    });
+
+    it('addBulk 메서드가 Job 옵션을 전달한다', async () => {
+      const queue = service.getQueueOrThrow('email');
+
+      class SendEmailJob {
+        async run() {}
+      }
+
+      await queue.addBulk([
+        {JobClass: SendEmailJob, args: ['user@example.com'], options: {timeout: 5000}},
+      ]);
+
+      expect(mockAdapter.addBulkJobs).toHaveBeenCalledWith(
+        'email',
+        [{jobName: 'SendEmailJob', args: ['user@example.com'], options: {timeout: 5000}}],
+        100, // DEFAULT_CHUNK_SIZE
+      );
+    });
   });
 });
