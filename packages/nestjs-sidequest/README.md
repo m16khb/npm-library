@@ -335,7 +335,15 @@ interface IQueueService {
     JobClass: new (...args: unknown[]) => T;
     args: Parameters<T['constructor']>;
     options?: JobAddOptions;
-  }>): Promise<string[]>;
+  }>, options?: BulkJobOptions): Promise<string[]>;
+}
+```
+
+### BulkJobOptions
+
+```typescript
+interface BulkJobOptions {
+  chunkSize?: number;  // Jobs per chunk (default: 100)
 }
 ```
 
@@ -343,11 +351,45 @@ interface IQueueService {
 
 ```typescript
 interface JobAddOptions {
-  priority?: number;       // Higher = processed first (default: 50)
-  timeout?: number;        // Job timeout in ms
+  // Note: Individual job priority is not currently supported by Sidequest.js.
+  // Use queue-level priority configuration instead.
+  priority?: number;       // @deprecated - Use queue-level priority
+  timeout?: number;        // Job timeout in ms (passed to Sidequest.js)
   maxAttempts?: number;    // Override retry attempts
-  startAfter?: Date;       // Delayed start
+  startAfter?: Date;       // Delayed start (scheduledAt)
 }
+```
+
+### Bulk Job Example
+
+```typescript
+// Add multiple jobs with default chunking (100 jobs per chunk)
+const jobs = users.map(user => ({
+  JobClass: SendWelcomeEmailJob,
+  args: [user.email, user.name] as const,
+}));
+
+await this.emailQueue.addBulk(jobs);
+
+// Add multiple jobs with custom chunk size
+await this.emailQueue.addBulk(jobs, { chunkSize: 50 });
+```
+
+### Priority Support
+
+**Important:** Sidequest.js supports job priority at the **queue level only**. Individual job priority is not currently supported.
+
+```typescript
+SidequestModule.forRoot({
+  queues: [
+    { name: 'critical', concurrency: 5, priority: 100 },  // Highest priority
+    { name: 'default', concurrency: 10, priority: 50 },   // Medium priority
+    { name: 'bulk', concurrency: 2, priority: 10 },       // Lowest priority
+  ],
+})
+
+// Jobs in 'critical' queue will be processed before 'default' and 'bulk' queues.
+// Individual job priority options are currently ignored.
 ```
 
 ## CLS Integration

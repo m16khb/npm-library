@@ -1,4 +1,15 @@
 /**
+ * Bulk Job 추가 옵션
+ */
+export interface BulkJobOptions {
+  /**
+   * 청크 크기 (한 번에 처리할 Job 수)
+   * @default 100
+   */
+  chunkSize?: number;
+}
+
+/**
  * Queue 서비스 인터페이스
  * @InjectQueue()로 주입되는 객체의 타입
  */
@@ -69,7 +80,20 @@ export interface IQueueService {
    * Bulk Job 추가
    *
    * @param jobs - Job 목록
+   * @param options - Bulk 옵션 (chunkSize 등)
    * @returns Job ID 배열
+   *
+   * @example
+   * ```typescript
+   * // 기본 청크 크기(100) 사용
+   * await queue.addBulk([
+   *   { JobClass: SendEmailJob, args: ['user1@example.com'] },
+   *   { JobClass: SendEmailJob, args: ['user2@example.com'] },
+   * ]);
+   *
+   * // 청크 크기 지정
+   * await queue.addBulk(jobs, { chunkSize: 50 });
+   * ```
    */
   addBulk<T>(
     jobs: Array<{
@@ -77,6 +101,7 @@ export interface IQueueService {
       args: unknown[];
       options?: JobAddOptions;
     }>,
+    options?: BulkJobOptions,
   ): Promise<string[]>;
 }
 
@@ -86,6 +111,10 @@ export interface IQueueService {
 export interface JobAddOptions {
   /**
    * 우선순위 (높을수록 먼저 처리)
+   *
+   * @deprecated Sidequest.js는 현재 개별 Job 레벨 priority를 지원하지 않습니다.
+   * 큐 레벨 priority를 대신 사용하세요 (SidequestModule.forRoot의 queues 옵션 참조).
+   * 이 옵션은 현재 무시됩니다.
    */
   priority?: number;
 

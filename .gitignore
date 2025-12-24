@@ -38,3 +38,6 @@ coverage/
 
 # Prettier cache
 .prettiercache
+
+# Prd
+prd/

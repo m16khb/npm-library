@@ -28,6 +28,7 @@ export const DEFAULT_QUEUE_NAME = 'default';
 export const DEFAULT_MAX_ATTEMPTS = 3;
 export const DEFAULT_TIMEOUT = 30000;
 export const DEFAULT_CONCURRENCY = 10;
+export const DEFAULT_CHUNK_SIZE = 100;
 
 // Log messages
 export const LOG_MESSAGES = {

@@ -2,6 +2,7 @@ import {Injectable, Logger} from '@nestjs/common';
 import {Sidequest, Job, JobBuilder} from 'sidequest';
 import type {SidequestModuleOptions} from '../interfaces/module-options.interface.js';
 import type {JobAddOptions, JobInfo, JobState, ErrorData} from '../interfaces/queue.interface.js';
+import {DEFAULT_CHUNK_SIZE} from '../constants.js';
 
 // Job 클래스 타입
 type JobClassType = new (...args: unknown[]) => Job;
@@ -143,9 +144,7 @@ export class SidequestAdapter {
     if (options?.timeout !== undefined) {
       builder = builder.timeout(options.timeout);
     }
-    if (options?.priority !== undefined) {
-      // priority는 queue 레벨에서 설정됨
-    }
+    // Note: options?.priority는 현재 지원되지 않음 (큐 레벨 priority만 사용 가능)
     if (options?.scheduledAt !== undefined) {
       builder = builder.availableAt(options.scheduledAt);
     }
@@ -169,18 +168,54 @@ export class SidequestAdapter {
   }
 
   /**
-   * Bulk Job 추가
+   * Bulk Job 추가 (청크 처리)
+   *
+   * Sidequest.js에 bulk API가 없으므로 청크로 나누어 순차 처리합니다.
+   * 청크 크기가 크면 메모리 사용량이 증가하지만 DB 부하가 감소합니다.
+   *
+   * @param queueName - 큐 이름
+   * @param jobs - Job 목록
+   * @param chunkSize - 청크 크기 (기본값: 100)
+   * @returns Job ID 배열
    */
   async addBulkJobs(
     queueName: string,
     jobs: Array<{jobName: string; args: unknown[]; options?: JobAddOptions}>,
+    chunkSize: number = DEFAULT_CHUNK_SIZE,
   ): Promise<string[]> {
-    const jobIds: string[] = [];
-
-    for (const {jobName, args, options} of jobs) {
-      const jobId = await this.addJob(queueName, jobName, args, options);
-      jobIds.push(jobId);
+    // chunkSize 유효성 검증
+    if (chunkSize <= 0) {
+      throw new Error(`chunkSize must be a positive number, got: ${chunkSize}`);
     }
+
+    // 빈 배열 조기 반환
+    if (jobs.length === 0) {
+      this.logger.debug(`No jobs to add for Queue '${queueName}'`);
+      return [];
+    }
+
+    const jobIds: string[] = [];
+    const totalChunks = Math.ceil(jobs.length / chunkSize);
+
+    // 청크로 나누어 순차 처리
+    for (let i = 0; i < jobs.length; i += chunkSize) {
+      const chunkIndex = Math.floor(i / chunkSize) + 1;
+      const chunk = jobs.slice(i, i + chunkSize);
+
+      this.logger.debug(
+        `Processing chunk ${chunkIndex}/${totalChunks} (${chunk.length} jobs) for Queue '${queueName}'`,
+      );
+
+      // 청크 내 Job은 순차적으로 추가
+      for (const {jobName, args, options} of chunk) {
+        const jobId = await this.addJob(queueName, jobName, args, options);
+        jobIds.push(jobId);
+      }
+    }
+
+    this.logger.log(
+      `Bulk job completed: ${jobIds.length} jobs added to Queue '${queueName}' in ${totalChunks} chunk(s)`,
+    );
 
     return jobIds;
   }

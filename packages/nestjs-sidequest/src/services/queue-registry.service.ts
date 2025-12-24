@@ -1,8 +1,8 @@
 import {Inject, Injectable, Logger} from '@nestjs/common';
-import {SIDEQUEST_MODULE_OPTIONS} from '../constants.js';
+import {SIDEQUEST_MODULE_OPTIONS, DEFAULT_CHUNK_SIZE} from '../constants.js';
 import {SidequestAdapter} from '../core/sidequest.adapter.js';
 import type {SidequestModuleOptions, QueueConfig} from '../interfaces/module-options.interface.js';
-import type {IQueueService, JobAddOptions} from '../interfaces/queue.interface.js';
+import type {IQueueService, JobAddOptions, BulkJobOptions} from '../interfaces/queue.interface.js';
 
 /**
  * Queue 레지스트리 서비스
@@ -112,7 +112,22 @@ export class QueueRegistryService {
           args: unknown[];
           options?: JobAddOptions;
         }>,
+        options?: BulkJobOptions,
       ): Promise<string[]> {
+        // 빈 배열 조기 반환
+        if (jobs.length === 0) {
+          return [];
+        }
+
+        const chunkSize = options?.chunkSize ?? DEFAULT_CHUNK_SIZE;
+
+        // chunkSize 유효성 검증
+        if (chunkSize <= 0) {
+          throw new Error(
+            `BulkJobOptions.chunkSize must be a positive number, got: ${chunkSize}`,
+          );
+        }
+
         const bulkJobs = jobs.map(job => {
           const result: {jobName: string; args: unknown[]; options?: JobAddOptions} = {
             jobName: job.JobClass.name,
@@ -123,7 +138,7 @@ export class QueueRegistryService {
           }
           return result;
         });
-        return adapter.addBulkJobs(queueName, bulkJobs);
+        return adapter.addBulkJobs(queueName, bulkJobs, chunkSize);
       },
     };
   }
