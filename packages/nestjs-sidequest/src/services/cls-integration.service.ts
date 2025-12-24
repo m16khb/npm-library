@@ -40,6 +40,9 @@ export class ClsIntegrationService {
 
   /**
    * CLS context 내에서 콜백 실행
+   *
+   * nestjs-cls의 run() 메서드는 동기적으로 반환하므로,
+   * async 콜백의 완료를 올바르게 대기해야 합니다.
    */
   async runInContext<T>(metadata: Record<string, unknown>, callback: () => Promise<T>): Promise<T> {
     if (!this.enabled || !this.clsService) {
@@ -47,20 +50,16 @@ export class ClsIntegrationService {
     }
 
     // nestjs-cls의 run 메서드를 사용하여 새 context에서 실행
-    return new Promise((resolve, reject) => {
-      try {
-        this.clsService!.run(() => {
-          // 메타데이터를 CLS에 설정
-          for (const [key, value] of Object.entries(metadata)) {
-            this.clsService!.set(key, value);
-          }
-
-          callback().then(resolve).catch(reject);
-        });
-      } catch (error) {
-        reject(error);
+    // run()은 콜백의 반환값을 그대로 반환하므로 Promise를 반환하면 await 가능
+    return this.clsService.run(async () => {
+      // 메타데이터를 CLS에 설정
+      for (const [key, value] of Object.entries(metadata)) {
+        this.clsService!.set(key, value);
       }
-    });
+
+      // async 콜백 실행 및 결과 반환
+      return callback();
+    }) as Promise<T>;
   }
 
   /**

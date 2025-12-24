@@ -154,7 +154,7 @@ export class SidequestAdapter {
     if (options?.backoffStrategy !== undefined) {
       builder = builder.backoffStrategy(options.backoffStrategy);
     }
-    if (options?.uniqueKey !== undefined) {
+    if (options?.unique === true) {
       builder = builder.unique(true);
     }
 

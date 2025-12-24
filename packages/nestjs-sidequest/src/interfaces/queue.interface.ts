@@ -139,19 +139,17 @@ export interface JobAddOptions {
   backoffStrategy?: 'fixed' | 'exponential';
 
   /**
-   * 고유성 키 (중복 방지)
+   * 중복 Job 방지
+   *
+   * true로 설정하면 동일한 Job이 큐에 중복으로 추가되지 않습니다.
+   * Sidequest.js의 unique() 메서드를 사용합니다.
    */
-  uniqueKey?: string;
+  unique?: boolean;
 
   /**
    * 예약 실행 시간
    */
   scheduledAt?: Date;
-
-  /**
-   * 메타데이터 (traceId 등)
-   */
-  metadata?: Record<string, unknown>;
 }
 
 /**
@@ -210,9 +208,6 @@ export interface JobInfo {
 
   /** 완료 시간 */
   completedAt?: Date;
-
-  /** 메타데이터 */
-  metadata?: Record<string, unknown>;
 }
 
 /**

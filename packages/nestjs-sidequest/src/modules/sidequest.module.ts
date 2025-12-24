@@ -187,11 +187,10 @@ export class SidequestModule {
       ];
     }
 
-    return [
-      {
-        provide: SIDEQUEST_MODULE_OPTIONS,
-        useValue: {},
-      },
-    ];
+    // useFactory, useClass, useExisting 중 하나는 반드시 제공되어야 함
+    throw new Error(
+      'SidequestModule.forRootAsync() requires one of: useFactory, useClass, or useExisting. ' +
+        'Please provide options configuration.',
+    );
   }
 }
