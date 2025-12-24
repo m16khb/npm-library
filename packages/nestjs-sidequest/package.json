@@ -1,6 +1,6 @@
 {
   "name": "@m16khb/nestjs-sidequest",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "NestJS integration for Sidequest.js - Database-native background job processing",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
