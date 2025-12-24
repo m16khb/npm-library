@@ -123,9 +123,7 @@ export class QueueRegistryService {
 
         // chunkSize 유효성 검증
         if (chunkSize <= 0) {
-          throw new Error(
-            `BulkJobOptions.chunkSize must be a positive number, got: ${chunkSize}`,
-          );
+          throw new Error(`BulkJobOptions.chunkSize must be a positive number, got: ${chunkSize}`);
         }
 
         const bulkJobs = jobs.map(job => {

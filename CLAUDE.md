@@ -36,11 +36,11 @@ npm-library/
 
 ## 하위 모듈
 
-| 모듈                                                         | 버전   | 설명                                      |
-| ------------------------------------------------------------ | ------ | ----------------------------------------- |
-| [nestjs-traceable](packages/nestjs-traceable/CLAUDE.md)     | 1.3.3  | TraceId 기반 분산 추적 라이브러리         |
-| [nestjs-async-utils](packages/nestjs-async-utils/CLAUDE.md) | 1.0.5  | NestJS 비동기 유틸리티 데코레이터         |
-| [nestjs-sidequest](packages/nestjs-sidequest/CLAUDE.md)     | 0.1.2  | NestJS Sidequest.js 통합 (DB 기반 Job 큐) |
+| 모듈                                                        | 버전  | 설명                                      |
+| ----------------------------------------------------------- | ----- | ----------------------------------------- |
+| [nestjs-traceable](packages/nestjs-traceable/CLAUDE.md)     | 1.3.3 | TraceId 기반 분산 추적 라이브러리         |
+| [nestjs-async-utils](packages/nestjs-async-utils/CLAUDE.md) | 1.0.5 | NestJS 비동기 유틸리티 데코레이터         |
+| [nestjs-sidequest](packages/nestjs-sidequest/CLAUDE.md)     | 0.1.2 | NestJS Sidequest.js 통합 (DB 기반 Job 큐) |
 
 ## Active Technologies
 

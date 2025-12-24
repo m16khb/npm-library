@@ -11,11 +11,11 @@ pnpm workspace와 Turborepo로 관리하는 npm 라이브러리 모음 모노레
 
 ## 패키지
 
-| 패키지                                                        | 버전                                                                                                                              | 설명                                                                                   |
-| ------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
-| [@m16khb/nestjs-async-utils](./packages/nestjs-async-utils)   | [![npm](https://img.shields.io/npm/v/@m16khb/nestjs-async-utils.svg)](https://www.npmjs.com/package/@m16khb/nestjs-async-utils)   | NestJS 비동기 작업 제어 데코레이터 (@Retryable, @Timeout, @ConcurrencyLimit)           |
-| [@m16khb/nestjs-traceable](./packages/nestjs-traceable)       | [![npm](https://img.shields.io/npm/v/@m16khb/nestjs-traceable.svg)](https://www.npmjs.com/package/@m16khb/nestjs-traceable)       | NestJS용 traceId 기반 분산 추적 라이브러리                                              |
-| [@m16khb/nestjs-sidequest](./packages/nestjs-sidequest)       | [![npm](https://img.shields.io/npm/v/@m16khb/nestjs-sidequest.svg)](https://www.npmjs.com/package/@m16khb/nestjs-sidequest)       | NestJS용 Sidequest.js 통합 - DB 기반 백그라운드 작업 처리 (LGPL)                       |
+| 패키지                                                      | 버전                                                                                                                            | 설명                                                                         |
+| ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| [@m16khb/nestjs-async-utils](./packages/nestjs-async-utils) | [![npm](https://img.shields.io/npm/v/@m16khb/nestjs-async-utils.svg)](https://www.npmjs.com/package/@m16khb/nestjs-async-utils) | NestJS 비동기 작업 제어 데코레이터 (@Retryable, @Timeout, @ConcurrencyLimit) |
+| [@m16khb/nestjs-traceable](./packages/nestjs-traceable)     | [![npm](https://img.shields.io/npm/v/@m16khb/nestjs-traceable.svg)](https://www.npmjs.com/package/@m16khb/nestjs-traceable)     | NestJS용 traceId 기반 분산 추적 라이브러리                                   |
+| [@m16khb/nestjs-sidequest](./packages/nestjs-sidequest)     | [![npm](https://img.shields.io/npm/v/@m16khb/nestjs-sidequest.svg)](https://www.npmjs.com/package/@m16khb/nestjs-sidequest)     | NestJS용 Sidequest.js 통합 - DB 기반 백그라운드 작업 처리 (LGPL)             |
 
 ## 기술 스택
 
