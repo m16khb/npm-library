@@ -418,6 +418,89 @@ export class EmailProcessor {
 }
 ```
 
+## Core Strengths
+
+### ✅ Race Condition Prevention (SKIP LOCKED)
+
+Sidequest.js uses PostgreSQL's `FOR UPDATE SKIP LOCKED` to prevent duplicate job processing in multi-worker environments:
+
+```sql
+SELECT * FROM sidequest_jobs
+WHERE state = 'waiting' AND queue = 'email'
+FOR UPDATE SKIP LOCKED
+LIMIT 1;
+```
+
+This ensures that even with multiple workers claiming jobs simultaneously, each job is processed exactly once.
+
+### ✅ Atomic Job Creation with Transactions
+
+Unlike Redis-based solutions, jobs can be created within database transactions, ensuring consistency:
+
+```typescript
+await this.dataSource.transaction(async (manager) => {
+  // Create user
+  const user = await manager.save(User, { email, name });
+
+  // Queue welcome email - rolls back if transaction fails!
+  await this.emailQueue.add(SendWelcomeEmailJob, user.email, user.name);
+});
+```
+
+If the transaction fails, the job is never created. This eliminates the need for compensation transactions.
+
+## Architecture Considerations
+
+### ⚠️ NestJS DI Separation
+
+Sidequest.js runs job workers in a **separate process** via `fork()`. This means:
+
+- Job classes (`extends Job`) **cannot use `@Inject()` decorators**
+- NestJS's DI container is not available inside Job classes
+- Use the `@Processor` pattern with `@OnJob` handlers for full DI access
+
+```typescript
+// ❌ Won't work - Job runs in separate process
+export class SendEmailJob extends Job {
+  @Inject() mailer: MailerService;  // undefined!
+}
+
+// ✅ Works - Processor runs in NestJS context
+@Processor('email')
+export class EmailProcessor {
+  constructor(private readonly mailer: MailerService) {}  // DI works!
+
+  @OnJob(SendEmailJob)
+  async handle(job: SendEmailJob) {
+    await this.mailer.send(job.to, job.subject);
+  }
+}
+```
+
+### ⚠️ Sidequest.js Core Limitations
+
+Some features are controlled by the Sidequest.js core library:
+
+| Feature | Status | Workaround |
+|---------|--------|------------|
+| Individual job priority | ❌ Not supported | Use queue-level priority |
+| Job timeout cancellation | ⚠️ Fire-and-forget | Job continues after timeout signal |
+| PostgreSQL NOTIFY | ❌ Polling only | Increase `jobPollingInterval` for reduced load |
+| Adaptive polling | ❌ Fixed interval | Configure via `jobPollingInterval` |
+
+## Recommended Use Cases
+
+### ✅ Good Fit
+
+- Internal tools and admin systems
+- Low-to-medium traffic services (< few thousand jobs/hour)
+- Environments where Redis infrastructure is difficult to introduce
+- Use cases requiring DB transaction atomicity with job creation
+
+### ⚠️ Consider Alternatives
+
+For mission-critical, high-scale services, consider battle-tested solutions like **BullMQ + Redis**.
+
 ## Why Sidequest.js?
 
 | Feature | BullMQ + Redis | Sidequest.js |
@@ -426,6 +509,7 @@ export class EmailProcessor {
 | Transaction Support | Requires compensation transactions | Native DB transaction support |
 | Operational Cost | Extra Redis instance cost | No additional infrastructure |
 | Deployment Simplicity | Manage Redis cluster | Simple database connection |
+| Race Condition Handling | Requires distributed locks | Built-in SKIP LOCKED |
 
 ## License
 

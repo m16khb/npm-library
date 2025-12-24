@@ -418,6 +418,89 @@ export class EmailProcessor {
 }
 ```
 
+## 핵심 강점
+
+### ✅ 경합 조건 방지 (SKIP LOCKED)
+
+Sidequest.js는 PostgreSQL의 `FOR UPDATE SKIP LOCKED`를 사용하여 다중 워커 환경에서 Job 중복 처리를 방지합니다:
+
+```sql
+SELECT * FROM sidequest_jobs
+WHERE state = 'waiting' AND queue = 'email'
+FOR UPDATE SKIP LOCKED
+LIMIT 1;
+```
+
+이로써 여러 워커가 동시에 Job을 처리하려 해도 각 Job은 정확히 한 번만 처리됩니다.
+
+### ✅ 트랜잭션 내 원자적 Job 생성
+
+Redis 기반 솔루션과 달리, 데이터베이스 트랜잭션 내에서 Job을 생성하여 일관성을 보장합니다:
+
+```typescript
+await this.dataSource.transaction(async (manager) => {
+  // 사용자 생성
+  const user = await manager.save(User, { email, name });
+
+  // 환영 이메일 큐에 추가 - 트랜잭션 실패 시 함께 롤백!
+  await this.emailQueue.add(SendWelcomeEmailJob, user.email, user.name);
+});
+```
+
+트랜잭션이 실패하면 Job도 생성되지 않습니다. 보상 트랜잭션이 필요 없습니다.
+
+## 아키텍처 고려사항
+
+### ⚠️ NestJS DI 분리
+
+Sidequest.js는 `fork()`를 통해 Job 워커를 **별도 프로세스**에서 실행합니다. 이는 다음을 의미합니다:
+
+- Job 클래스(`extends Job`)에서 **`@Inject()` 데코레이터 사용 불가**
+- Job 클래스 내부에서 NestJS DI 컨테이너 접근 불가
+- 전체 DI 지원을 위해 `@Processor` 패턴과 `@OnJob` 핸들러 사용
+
+```typescript
+// ❌ 작동 안 함 - Job은 별도 프로세스에서 실행
+export class SendEmailJob extends Job {
+  @Inject() mailer: MailerService;  // undefined!
+}
+
+// ✅ 작동함 - Processor는 NestJS 컨텍스트에서 실행
+@Processor('email')
+export class EmailProcessor {
+  constructor(private readonly mailer: MailerService) {}  // DI 작동!
+
+  @OnJob(SendEmailJob)
+  async handle(job: SendEmailJob) {
+    await this.mailer.send(job.to, job.subject);
+  }
+}
+```
+
+### ⚠️ Sidequest.js 코어 제한사항
+
+일부 기능은 Sidequest.js 코어 라이브러리에서 제어됩니다:
+
+| 기능 | 상태 | 우회 방안 |
+|---------|--------|------------|
+| 개별 Job priority | ❌ 미지원 | 큐 레벨 priority 사용 |
+| Job 타임아웃 취소 | ⚠️ fire-and-forget | 타임아웃 시그널 후에도 Job 계속 실행 |
+| PostgreSQL NOTIFY | ❌ 폴링만 가능 | `jobPollingInterval` 증가로 부하 감소 |
+| 적응형 폴링 | ❌ 고정 간격 | `jobPollingInterval`로 설정 |
+
+## 권장 사용 사례
+
+### ✅ 적합한 경우
+
+- 내부 툴 및 어드민 시스템
+- 중저 트래픽 서비스 (시간당 수천 건 이하)
+- Redis 인프라 도입이 어려운 환경
+- DB 트랜잭션과 Job 생성의 원자성이 필요한 경우
+
+### ⚠️ 대안 고려
+
+미션 크리티컬한 대규모 서비스의 경우, 검증된 솔루션인 **BullMQ + Redis**를 고려하세요.
+
 ## 왜 Sidequest.js인가요?
 
 | 기능 | BullMQ + Redis | Sidequest.js |
@@ -426,6 +509,7 @@ export class EmailProcessor {
 | 트랜잭션 지원 | 보상 트랜잭션 필요 | 네이티브 DB 트랜잭션 지원 |
 | 운영 비용 | 추가 Redis 인스턴스 비용 | 추가 인프라 불필요 |
 | 배포 단순성 | Redis 클러스터 관리 | 간단한 데이터베이스 연결 |
+| 경합 조건 처리 | 분산 락 필요 | SKIP LOCKED 내장 |
 
 ## 라이선스
 
